@@ -1,0 +1,34 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mitmproxy-mcp"
+version = "0.1.0"
+description = "mitmproxy MCP Server - Traffic analysis via Model Context Protocol"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    {name = "mitmproxy-mcp contributors"}
+]
+license = {text = "MIT"}
+
+dependencies = [
+    "mitmproxy>=10.0.0",
+    "mcp>=1.0.0",
+    "pydantic>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+]
+
+[project.scripts]
+mitmproxy-mcp = "mitmproxy_mcp.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["mitmproxy_mcp"]
