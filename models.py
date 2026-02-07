@@ -1,6 +1,6 @@
 """Pydantic models for mitmproxy flow serialization."""
 
-from typing import Optional, Dict, List, Any
+from typing import Optional, Dict, Any
 from pydantic import BaseModel, Field
 from datetime import datetime
 import base64

@@ -1,13 +1,13 @@
 """MCP tools for querying captured HTTP traffic flows."""
 
-from typing import List, Optional, Any, Dict
+from typing import List, Any, Dict
 import json
 from datetime import datetime
 
 import mcp.types as types
 
 from storage import get_storage
-from models import FlowDetail, FlowSummary, RequestModel, ResponseModel
+from models import FlowDetail, RequestModel, ResponseModel
 from privacy import get_redaction_engine
 
 

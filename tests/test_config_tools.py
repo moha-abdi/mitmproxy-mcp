@@ -1,7 +1,7 @@
 import json
 import sys
 import os
-from unittest.mock import Mock, patch, PropertyMock
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -12,8 +12,6 @@ from storage import FlowStorage, set_storage
 from tools.config import (
     CONFIG_TOOLS,
     handle_config_tool,
-    BLOCKED_OPTIONS,
-    CURATED_OPTIONS,
 )
 
 

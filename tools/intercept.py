@@ -47,7 +47,7 @@ def set_intercept_filter_internal(filter_str: str) -> Dict[str, Any]:
 
     try:
         parsed = flowfilter.parse(filter_str)
-    except ValueError as e:
+    except ValueError:
         return {
             "status": "error",
             "filter": filter_str,

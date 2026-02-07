@@ -31,7 +31,7 @@ from tools.intercept import (
     set_intercept_filter_internal,
 )
 from tools.config import handle_config_tool
-from privacy import init_redaction_engine, get_redaction_engine, reset_redaction_engine
+from privacy import init_redaction_engine, reset_redaction_engine
 
 
 class TestFullFlowLifecycle:
@@ -125,7 +125,7 @@ class TestRequestReplayChain:
             )
             data = json.loads(result[0].text)
             assert data["status"] == "success"
-            replay_flow_id = data["new_flow_id"]
+            _ = data["new_flow_id"]
 
             # Modify and send
             result = await handle_replay_tool(

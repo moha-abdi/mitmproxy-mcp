@@ -1,6 +1,6 @@
 """In-memory flow storage for MCP tools."""
 
-from typing import Dict, List, Optional, Callable
+from typing import Dict, List, Optional
 from mitmproxy import http
 from threading import Lock
 import re
