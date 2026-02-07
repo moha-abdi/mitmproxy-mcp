@@ -1,5 +1,6 @@
 # mitmproxy-mcp
 
+[![CI](https://github.com/moha-abdi/mitmproxy-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/moha-abdi/mitmproxy-mcp/actions/workflows/ci.yml)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
@@ -7,7 +8,7 @@ MCP server for [mitmproxy](https://mitmproxy.org/) -- analyze, intercept, and re
 
 ## What is this
 
-mitmproxy-mcp runs as a mitmproxy addon. It embeds an [MCP](https://modelcontextprotocol.io/) server directly in the proxy process, giving AI agents (Claude, OpenCode, etc.) access to 20 tools for traffic analysis, request replay, interception control, and proxy configuration.
+mitmproxy-mcp runs as a mitmproxy addon. It embeds an [MCP](https://modelcontextprotocol.io/) server directly in the proxy process, giving AI agents access to 20 tools for traffic analysis, request replay, interception control, and proxy configuration.
 
 All captured data stays in-memory. Sensitive values (tokens, passwords, API keys, JWTs) are automatically redacted before being sent to the AI.
 
@@ -20,7 +21,6 @@ cd mitmproxy-mcp
 python3.10 -m venv .venv
 source .venv/bin/activate
 
-# recommended
 uv pip install -e ".[dev]"
 ```
 
@@ -28,7 +28,9 @@ Requires Python 3.10+ and mitmproxy >= 10.0.0.
 
 ## Setup
 
-The addon auto-loads via mitmproxy's config file. Create or edit `~/.mitmproxy/config.yaml`:
+### 1. Configure mitmproxy
+
+Create or edit `~/.mitmproxy/config.yaml`:
 
 ```yaml
 scripts:
@@ -38,7 +40,7 @@ mcp_transport: sse
 mcp_port: 9011
 ```
 
-Then just start mitmproxy normally:
+### 2. Start mitmproxy
 
 ```bash
 mitmproxy      # interactive TUI
@@ -46,11 +48,99 @@ mitmweb        # web interface
 mitmdump       # headless
 ```
 
-The MCP server starts automatically on port 9011.
+The MCP server starts automatically on `http://localhost:9011/sse`.
 
-### Connecting from OpenCode
+### 3. Connect your AI client
 
-Add to `~/.config/opencode/opencode.json`:
+All clients connect to the same SSE endpoint. Make sure mitmproxy is running before connecting.
+
+<details>
+<summary><b>Claude Code</b></summary>
+
+```bash
+claude mcp add --transport sse mitmproxy http://localhost:9011/sse
+```
+
+</details>
+
+<details>
+<summary><b>Cursor</b></summary>
+
+Add to `.cursor/mcp.json` in your project root:
+
+```json
+{
+  "mcpServers": {
+    "mitmproxy": {
+      "url": "http://localhost:9011/sse"
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><b>Windsurf</b></summary>
+
+Add to `~/.codeium/windsurf/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "mitmproxy": {
+      "url": "http://localhost:9011/sse"
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><b>VS Code (Copilot)</b></summary>
+
+Add to `.vscode/mcp.json` in your project root:
+
+```json
+{
+  "servers": {
+    "mitmproxy": {
+      "type": "http",
+      "url": "http://localhost:9011/sse"
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><b>Claude Desktop</b></summary>
+
+Claude Desktop doesn't natively support SSE, so we use [supergateway](https://github.com/supercorp-ai/supergateway) to bridge SSE to STDIO. Requires Node.js.
+
+Add to your config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
+
+```json
+{
+  "mcpServers": {
+    "mitmproxy": {
+      "command": "npx",
+      "args": ["-y", "supergateway", "--sse", "http://127.0.0.1:9011/sse"]
+    }
+  }
+}
+```
+
+</details>
+
+<details>
+<summary><b>OpenCode</b></summary>
+
+OpenCode's local type bridges via [supergateway](https://github.com/supercorp-ai/supergateway). Requires Node.js.
+
+Add to `opencode.json` in your project root, or `~/.config/opencode/opencode.json` globally:
 
 ```json
 {
@@ -64,25 +154,24 @@ Add to `~/.config/opencode/opencode.json`:
 }
 ```
 
-### Connecting from Claude Desktop
+</details>
 
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
+<details>
+<summary><b>Other clients</b></summary>
 
-```json
-{
-  "mcpServers": {
-    "mitmproxy": {
-      "command": "mitmdump",
-      "args": ["-s", "/absolute/path/to/mitmproxy-mcp/addon.py", "-p", "8080"],
-      "env": {
-        "PYTHONPATH": "/absolute/path/to/mitmproxy-mcp"
-      }
-    }
-  }
-}
+Any MCP client that supports SSE transport can connect directly to:
+
+```
+http://localhost:9011/sse
 ```
 
-Note: Claude Desktop uses STDIO transport. Set `mcp_transport: stdio` in config.yaml, or pass `--set mcp_transport=stdio` on the command line.
+If your client only supports STDIO, use [supergateway](https://github.com/supercorp-ai/supergateway) to bridge:
+
+```bash
+npx -y supergateway --sse http://127.0.0.1:9011/sse
+```
+
+</details>
 
 ## Tools
 
