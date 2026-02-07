@@ -1,15 +1,11 @@
 import json
-import sys
-import os
 from unittest.mock import Mock, patch
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
 from mitmproxy.test import tflow
 
-from storage import FlowStorage, set_storage
-from tools.config import (
+from mitmproxy_mcp.storage import FlowStorage, set_storage
+from mitmproxy_mcp.tools.config import (
     CONFIG_TOOLS,
     handle_config_tool,
 )
@@ -54,7 +50,7 @@ class TestGetOptions:
 
     @pytest.mark.asyncio
     async def test_get_default_curated_options(self):
-        with patch("tools.config.ctx") as mock_ctx:
+        with patch("mitmproxy_mcp.tools.config.ctx") as mock_ctx:
             mock_ctx.options.listen_host = "127.0.0.1"
             mock_ctx.options.listen_port = 8080
             mock_ctx.options.mode = "regular"
@@ -75,7 +71,7 @@ class TestGetOptions:
 
     @pytest.mark.asyncio
     async def test_get_specific_keys(self):
-        with patch("tools.config.ctx") as mock_ctx:
+        with patch("mitmproxy_mcp.tools.config.ctx") as mock_ctx:
             mock_ctx.options.listen_host = "127.0.0.1"
             mock_ctx.options.listen_port = 8080
             mock_ctx.options.anticache = True
@@ -93,7 +89,7 @@ class TestGetOptions:
 
     @pytest.mark.asyncio
     async def test_get_nonexistent_key(self):
-        with patch("tools.config.ctx") as mock_ctx:
+        with patch("mitmproxy_mcp.tools.config.ctx") as mock_ctx:
             mock_ctx.options.listen_host = "127.0.0.1"
             mock_ctx.options.nonexistent_option = None
 
@@ -107,7 +103,7 @@ class TestGetOptions:
 
     @pytest.mark.asyncio
     async def test_get_empty_keys_list(self):
-        with patch("tools.config.ctx") as mock_ctx:
+        with patch("mitmproxy_mcp.tools.config.ctx") as mock_ctx:
             mock_ctx.options.listen_host = "127.0.0.1"
             mock_ctx.options.listen_port = 8080
             mock_ctx.options.mode = "regular"
@@ -132,7 +128,7 @@ class TestSetOption:
 
     @pytest.mark.asyncio
     async def test_set_valid_option(self):
-        with patch("tools.config.ctx") as mock_ctx:
+        with patch("mitmproxy_mcp.tools.config.ctx") as mock_ctx:
             mock_ctx.options.anticache = False
             mock_ctx.options.update = Mock()
 
@@ -148,7 +144,7 @@ class TestSetOption:
 
     @pytest.mark.asyncio
     async def test_set_blocked_option_listen_host(self):
-        with patch("tools.config.ctx") as mock_ctx:
+        with patch("mitmproxy_mcp.tools.config.ctx") as mock_ctx:
             mock_ctx.options.listen_host = "127.0.0.1"
 
             result = await handle_config_tool(
@@ -162,7 +158,7 @@ class TestSetOption:
 
     @pytest.mark.asyncio
     async def test_set_blocked_option_listen_port(self):
-        with patch("tools.config.ctx") as mock_ctx:
+        with patch("mitmproxy_mcp.tools.config.ctx") as mock_ctx:
             mock_ctx.options.listen_port = 8080
 
             result = await handle_config_tool(
@@ -175,7 +171,7 @@ class TestSetOption:
 
     @pytest.mark.asyncio
     async def test_set_blocked_option_mode(self):
-        with patch("tools.config.ctx") as mock_ctx:
+        with patch("mitmproxy_mcp.tools.config.ctx") as mock_ctx:
             mock_ctx.options.mode = "regular"
 
             result = await handle_config_tool(
@@ -188,7 +184,7 @@ class TestSetOption:
 
     @pytest.mark.asyncio
     async def test_set_blocked_option_ssl_insecure(self):
-        with patch("tools.config.ctx") as mock_ctx:
+        with patch("mitmproxy_mcp.tools.config.ctx") as mock_ctx:
             mock_ctx.options.ssl_insecure = False
 
             result = await handle_config_tool(
@@ -201,7 +197,7 @@ class TestSetOption:
 
     @pytest.mark.asyncio
     async def test_set_nonexistent_option(self):
-        with patch("tools.config.ctx") as mock_ctx:
+        with patch("mitmproxy_mcp.tools.config.ctx") as mock_ctx:
             mock_options = Mock()
             mock_options.anticache = False
 
@@ -231,7 +227,7 @@ class TestSetOption:
 
     @pytest.mark.asyncio
     async def test_set_option_update_exception(self):
-        with patch("tools.config.ctx") as mock_ctx:
+        with patch("mitmproxy_mcp.tools.config.ctx") as mock_ctx:
             mock_ctx.options.anticache = False
             mock_ctx.options.update = Mock(side_effect=ValueError("Invalid value"))
 
@@ -251,8 +247,8 @@ class TestGetStatus:
 
     @pytest.mark.asyncio
     async def test_get_status_basic(self):
-        with patch("tools.config.ctx") as mock_ctx:
-            with patch("tools.config.version") as mock_version:
+        with patch("mitmproxy_mcp.tools.config.ctx") as mock_ctx:
+            with patch("mitmproxy_mcp.tools.config.version") as mock_version:
                 mock_version.VERSION = "10.0.0"
                 mock_ctx.options.listen_host = "127.0.0.1"
                 mock_ctx.options.listen_port = 8080
@@ -274,8 +270,8 @@ class TestGetStatus:
         flow = tflow.tflow(resp=True)
         self.storage.add(flow)
 
-        with patch("tools.config.ctx") as mock_ctx:
-            with patch("tools.config.version") as mock_version:
+        with patch("mitmproxy_mcp.tools.config.ctx") as mock_ctx:
+            with patch("mitmproxy_mcp.tools.config.version") as mock_version:
                 mock_version.VERSION = "10.0.0"
                 mock_ctx.options.listen_host = "127.0.0.1"
                 mock_ctx.options.listen_port = 8080
@@ -294,8 +290,8 @@ class TestGetStatus:
 
     @pytest.mark.asyncio
     async def test_get_status_includes_all_fields(self):
-        with patch("tools.config.ctx") as mock_ctx:
-            with patch("tools.config.version") as mock_version:
+        with patch("mitmproxy_mcp.tools.config.ctx") as mock_ctx:
+            with patch("mitmproxy_mcp.tools.config.version") as mock_version:
                 mock_version.VERSION = "10.0.0"
                 mock_ctx.options.listen_host = "127.0.0.1"
                 mock_ctx.options.listen_port = 8080

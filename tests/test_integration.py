@@ -13,25 +13,21 @@ Tool Categories:
 """
 
 import json
-import sys
-import os
 from unittest.mock import AsyncMock, patch, MagicMock
 import threading
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
 from mitmproxy.test import tflow
 
-from storage import FlowStorage, set_storage
-from tools.flows import handle_flow_tool
-from tools.replay import handle_replay_tool
-from tools.intercept import (
+from mitmproxy_mcp.storage import FlowStorage, set_storage
+from mitmproxy_mcp.tools.flows import handle_flow_tool
+from mitmproxy_mcp.tools.replay import handle_replay_tool
+from mitmproxy_mcp.tools.intercept import (
     handle_intercept_tool,
     set_intercept_filter_internal,
 )
-from tools.config import handle_config_tool
-from privacy import init_redaction_engine, reset_redaction_engine
+from mitmproxy_mcp.tools.config import handle_config_tool
+from mitmproxy_mcp.privacy import init_redaction_engine, reset_redaction_engine
 
 
 class TestFullFlowLifecycle:
@@ -355,8 +351,8 @@ class TestConfigurationManagement:
     @pytest.mark.asyncio
     async def test_get_status_and_options(self):
         """Test getting proxy status and options."""
-        with patch("tools.config.ctx") as mock_ctx:
-            with patch("tools.config.version") as mock_version:
+        with patch("mitmproxy_mcp.tools.config.ctx") as mock_ctx:
+            with patch("mitmproxy_mcp.tools.config.version") as mock_version:
                 mock_version.VERSION = "10.0.0"
                 mock_ctx.options.listen_host = "127.0.0.1"
                 mock_ctx.options.listen_port = 8080
@@ -376,7 +372,7 @@ class TestConfigurationManagement:
     @pytest.mark.asyncio
     async def test_set_allowed_option(self):
         """Test setting an allowed option."""
-        with patch("tools.config.ctx") as mock_ctx:
+        with patch("mitmproxy_mcp.tools.config.ctx") as mock_ctx:
             mock_ctx.options.anticache = False
             mock_ctx.options.update = MagicMock()
 
@@ -393,7 +389,7 @@ class TestConfigurationManagement:
     @pytest.mark.asyncio
     async def test_blocked_option_raises_error(self):
         """Test that blocked options cannot be modified."""
-        with patch("tools.config.ctx") as mock_ctx:
+        with patch("mitmproxy_mcp.tools.config.ctx") as mock_ctx:
             mock_ctx.options.listen_port = 8080
 
             result = await handle_config_tool(
@@ -725,8 +721,8 @@ class TestEndToEndScenario:
             flows.append(flow)
 
         # Step 2: Get status
-        with patch("tools.config.ctx") as mock_ctx:
-            with patch("tools.config.version") as mock_version:
+        with patch("mitmproxy_mcp.tools.config.ctx") as mock_ctx:
+            with patch("mitmproxy_mcp.tools.config.version") as mock_version:
                 mock_version.VERSION = "10.0.0"
                 mock_ctx.options.listen_host = "127.0.0.1"
                 mock_ctx.options.listen_port = 8080

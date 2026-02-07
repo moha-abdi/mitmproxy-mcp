@@ -1,14 +1,10 @@
 import json
-import sys
-import os
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
 from mitmproxy.test import tflow
 
-from storage import FlowStorage, set_storage
-from tools.intercept import (
+from mitmproxy_mcp.storage import FlowStorage, set_storage
+from mitmproxy_mcp.tools.intercept import (
     INTERCEPT_TOOLS,
     handle_intercept_tool,
     set_intercept_filter_internal,

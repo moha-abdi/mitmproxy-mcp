@@ -33,3 +33,10 @@ mitmproxy-mcp = "mitmproxy_mcp.__main__:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["mitmproxy_mcp"]
+
+[tool.ruff]
+exclude = ["poc/", "test_transports.py"]
+
+[tool.mypy]
+ignore_missing_imports = true
+packages = ["mitmproxy_mcp"]

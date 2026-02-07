@@ -1,9 +1,4 @@
-import sys
-import os
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from privacy import (
+from mitmproxy_mcp.privacy import (
     RedactionEngine,
     init_redaction_engine,
     get_redaction_engine,

@@ -7,7 +7,7 @@ from datetime import datetime
 import mcp.types as types
 from mitmproxy import flowfilter
 
-from storage import get_storage
+from ..storage import get_storage
 
 
 _intercept_filter: Optional[str] = None
@@ -183,7 +183,7 @@ async def handle_intercept_tool(
         return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
 
     elif name == "resume_flow":
-        flow_id = arguments.get("flow_id")
+        flow_id = arguments.get("flow_id") or ""
         if not flow_id:
             return [
                 types.TextContent(type="text", text='{"error": "flow_id is required"}')
@@ -234,7 +234,7 @@ async def handle_intercept_tool(
         return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
 
     elif name == "drop_flow":
-        flow_id = arguments.get("flow_id")
+        flow_id = arguments.get("flow_id") or ""
         if not flow_id:
             return [
                 types.TextContent(type="text", text='{"error": "flow_id is required"}')

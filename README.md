@@ -165,22 +165,28 @@ mitmdump -s addon.py --set mcp_redact_patterns='["internal_secret", "x-custom-ke
 
 ```
 mitmproxy-mcp/
-  addon.py          main mitmproxy addon
-  models.py         pydantic models for flow serialization
-  storage.py        thread-safe in-memory flow storage
-  privacy.py        redaction engine
-  transport.py      stdio, sse, tcp transport layer
-  tools/
-    flows.py        flow query tools
-    replay.py       replay and modification tools
-    intercept.py    interception control tools
-    config.py       proxy configuration tools
-  tests/            test suite
+  addon.py              thin wrapper for mitmproxy script loading
+  mitmproxy_mcp/        main package
+    __init__.py
+    addon.py            mitmproxy addon with MCP server
+    models.py           pydantic models for flow serialization
+    storage.py          thread-safe in-memory flow storage
+    privacy.py          redaction engine
+    transport.py        stdio, sse, tcp transport layer
+    tools/
+      flows.py          flow query tools
+      replay.py         replay and modification tools
+      intercept.py      interception control tools
+      config.py         proxy configuration tools
+  tests/                test suite
 ```
 
 ## Development
 
 ```bash
+# install in editable mode (required for imports to work)
+uv pip install -e ".[dev]"
+
 # run tests
 pytest tests/ -v
 
@@ -188,13 +194,13 @@ pytest tests/ -v
 pytest tests/test_flow_tools.py -v
 
 # with coverage
-pytest tests/ --cov=. --cov-report=html
+pytest tests/ --cov=mitmproxy_mcp --cov-report=html
 
 # lint
 ruff check .
 
 # type check
-mypy . --ignore-missing-imports
+mypy
 ```
 
 ## License

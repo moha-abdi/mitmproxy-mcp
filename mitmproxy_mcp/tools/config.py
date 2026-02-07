@@ -4,7 +4,7 @@ import json
 import mcp.types as types
 from mitmproxy import ctx, version
 
-from storage import get_storage
+from ..storage import get_storage
 
 
 BLOCKED_OPTIONS = {

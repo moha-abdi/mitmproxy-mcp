@@ -1,15 +1,11 @@
 import json
-import sys
-import os
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 from mitmproxy.test import tflow
 
-from storage import FlowStorage, set_storage
-from tools.replay import (
+from mitmproxy_mcp.storage import FlowStorage, set_storage
+from mitmproxy_mcp.tools.replay import (
     handle_replay_tool,
     REPLAY_TOOLS,
     _create_flow_from_params,

@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from mcp.server import Server
 
-from transport import (
+from mitmproxy_mcp.transport import (
     start_stdio_transport,
     start_sse_transport,
     start_tcp_transport,
@@ -25,7 +25,7 @@ def mock_server():
 class TestStdioTransport:
     @pytest.mark.asyncio
     async def test_start_stdio_transport(self, mock_server):
-        with patch("transport.stdio_server") as mock_stdio:
+        with patch("mitmproxy_mcp.transport.stdio_server") as mock_stdio:
             mock_read_stream = MagicMock()
             mock_write_stream = MagicMock()
             mock_stdio.return_value.__aenter__.return_value = (

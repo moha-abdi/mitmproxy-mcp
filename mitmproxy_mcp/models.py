@@ -59,7 +59,7 @@ def headers_to_dict(headers: Any) -> Dict[str, str]:
     Returns:
         Dictionary mapping header names to values
     """
-    result = {}
+    result: dict[str, str] = {}
     if headers is None:
         return result
 
@@ -71,22 +71,6 @@ def headers_to_dict(headers: Any) -> Dict[str, str]:
         items = headers
 
     for name, value in items:
-        # Convert bytes to str if needed
-        if isinstance(name, bytes):
-            name = name.decode("utf-8", errors="replace")
-        if isinstance(value, bytes):
-            value = value.decode("utf-8", errors="replace")
-
-        # Handle multi-value headers by joining with comma
-        if name in result:
-            result[name] = f"{result[name]}, {value}"
-        else:
-            result[name] = value
-
-    return result
-
-    # Headers can be iterated as (name, value) tuples
-    for name, value in headers:
         # Convert bytes to str if needed
         if isinstance(name, bytes):
             name = name.decode("utf-8", errors="replace")
