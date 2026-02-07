@@ -55,10 +55,46 @@ The MCP server starts automatically on `http://localhost:9011/sse`.
 All clients connect to the same SSE endpoint. Make sure mitmproxy is running before connecting.
 
 <details>
+<summary><b>OpenCode</b></summary>
+
+OpenCode's local type bridges via [supergateway](https://github.com/supercorp-ai/supergateway). Requires Node.js.
+
+Add to `opencode.json` in your project root, or `~/.config/opencode/opencode.json` globally:
+
+```json
+{
+  "mcp": {
+    "mitmproxy": {
+      "type": "local",
+      "command": ["npx", "-y", "supergateway", "--sse", "http://127.0.0.1:9011/sse"],
+      "enabled": true
+    }
+  }
+}
+```
+
+</details>
+
+<details>
 <summary><b>Claude Code</b></summary>
+
+Via the CLI:
 
 ```bash
 claude mcp add --transport sse mitmproxy http://localhost:9011/sse
+```
+
+Or add manually to `~/.claude.json`:
+
+```json
+{
+  "mcpServers": {
+    "mitmproxy": {
+      "type": "sse",
+      "url": "http://localhost:9011/sse"
+    }
+  }
+}
 ```
 
 </details>
@@ -128,27 +164,6 @@ Add to your config (`~/Library/Application Support/Claude/claude_desktop_config.
     "mitmproxy": {
       "command": "npx",
       "args": ["-y", "supergateway", "--sse", "http://127.0.0.1:9011/sse"]
-    }
-  }
-}
-```
-
-</details>
-
-<details>
-<summary><b>OpenCode</b></summary>
-
-OpenCode's local type bridges via [supergateway](https://github.com/supercorp-ai/supergateway). Requires Node.js.
-
-Add to `opencode.json` in your project root, or `~/.config/opencode/opencode.json` globally:
-
-```json
-{
-  "mcp": {
-    "mitmproxy": {
-      "type": "local",
-      "command": ["npx", "-y", "supergateway", "--sse", "http://127.0.0.1:9011/sse"],
-      "enabled": true
     }
   }
 }
