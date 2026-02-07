@@ -22,9 +22,6 @@ source .venv/bin/activate
 
 # recommended
 uv pip install -e ".[dev]"
-
-# or with pip
-pip install -e ".[dev]"
 ```
 
 Requires Python 3.10+ and mitmproxy >= 10.0.0.
@@ -76,7 +73,7 @@ Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_
   "mcpServers": {
     "mitmproxy": {
       "command": "mitmdump",
-      "args": ["-s", "/absolute/path/to/addon.py", "-p", "8080"],
+      "args": ["-s", "/absolute/path/to/mitmproxy-mcp/addon.py", "-p", "8080"],
       "env": {
         "PYTHONPATH": "/absolute/path/to/mitmproxy-mcp"
       }
@@ -178,7 +175,7 @@ mitmproxy-mcp/
     replay.py       replay and modification tools
     intercept.py    interception control tools
     config.py       proxy configuration tools
-  tests/            174 tests
+  tests/            test suite
 ```
 
 ## Development
@@ -191,13 +188,13 @@ pytest tests/ -v
 pytest tests/test_flow_tools.py -v
 
 # with coverage
-pytest tests/ --cov=mitmproxy_mcp --cov-report=html
+pytest tests/ --cov=. --cov-report=html
 
 # lint
 ruff check .
 
 # type check
-mypy mitmproxy_mcp/ --ignore-missing-imports
+mypy . --ignore-missing-imports
 ```
 
 ## License
