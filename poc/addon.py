@@ -42,7 +42,7 @@ class MCPAddon:
             return [types.TextContent(type="text", text="pong")]
 
     def load(self, loader: Loader) -> None:
-        loader.add_option("mcp_port", int, 9876, "MCP TCP port for POC")
+        loader.add_option("mcp_port", int, 9011, "MCP TCP port for POC")
 
     def running(self) -> None:
         loop = asyncio.get_running_loop()

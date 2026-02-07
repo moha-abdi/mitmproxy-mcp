@@ -35,7 +35,7 @@ async def start_stdio_transport(server: Server) -> None:
 
 
 async def start_sse_transport(
-    server: Server, host: str = "127.0.0.1", port: int = 9876
+    server: Server, host: str = "127.0.0.1", port: int = 9011
 ) -> None:
     """Start SSE transport for web clients.
 
@@ -45,7 +45,7 @@ async def start_sse_transport(
     Args:
         server: MCP Server instance to run
         host: Host to bind to (default: 127.0.0.1)
-        port: Port to bind to (default: 9876)
+        port: Port to bind to (default: 9011)
     """
     from starlette.applications import Starlette
     from starlette.requests import Request
@@ -78,7 +78,7 @@ async def start_sse_transport(
 
 
 async def start_tcp_transport(
-    server: Server, host: str = "127.0.0.1", port: int = 9876
+    server: Server, host: str = "127.0.0.1", port: int = 9011
 ) -> asyncio.AbstractServer:
     """Start TCP transport (for testing/POC).
 
@@ -88,7 +88,7 @@ async def start_tcp_transport(
     Args:
         server: MCP Server instance to run
         host: Host to bind to (default: 127.0.0.1)
-        port: Port to bind to (default: 9876)
+        port: Port to bind to (default: 9011)
 
     Returns:
         The asyncio TCP server instance
@@ -147,7 +147,7 @@ async def start_tcp_transport(
 
 
 async def serve_with_tcp(
-    server: Server, host: str = "127.0.0.1", port: int = 9876
+    server: Server, host: str = "127.0.0.1", port: int = 9011
 ) -> None:
     """Serve MCP server with TCP transport (blocking).
 
@@ -157,7 +157,7 @@ async def serve_with_tcp(
     Args:
         server: MCP Server instance to run
         host: Host to bind to (default: 127.0.0.1)
-        port: Port to bind to (default: 9876)
+        port: Port to bind to (default: 9011)
     """
     tcp_server = await start_tcp_transport(server, host, port)
     async with tcp_server:

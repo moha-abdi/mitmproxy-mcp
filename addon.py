@@ -77,7 +77,7 @@ class MCPAddon:
             "stdio",
             "MCP transport type: stdio (default), sse, or tcp",
         )
-        loader.add_option("mcp_port", int, 9876, "MCP server port (for sse/tcp)")
+        loader.add_option("mcp_port", int, 9011, "MCP server port (for sse/tcp)")
         loader.add_option("mcp_max_flows", int, 1000, "Maximum flows to store")
         loader.add_option(
             "mcp_redact_patterns",

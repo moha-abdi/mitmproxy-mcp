@@ -48,7 +48,7 @@ class TestSseTransport:
             mock_uvicorn_server.return_value = mock_instance
 
             task = asyncio.create_task(
-                start_sse_transport(mock_server, "127.0.0.1", 9876)
+                start_sse_transport(mock_server, "127.0.0.1", 9011)
             )
 
             await asyncio.sleep(0.1)
@@ -62,13 +62,13 @@ class TestSseTransport:
             mock_uvicorn_server.assert_called_once()
             config = mock_uvicorn_server.call_args[0][0]
             assert config.host == "127.0.0.1"
-            assert config.port == 9876
+            assert config.port == 9011
 
 
 class TestTcpTransport:
     @pytest.mark.asyncio
     async def test_start_tcp_transport_creates_server(self, mock_server):
-        tcp_server = await start_tcp_transport(mock_server, "127.0.0.1", 9876)
+        tcp_server = await start_tcp_transport(mock_server, "127.0.0.1", 9011)
 
         assert tcp_server is not None
         assert isinstance(tcp_server, asyncio.AbstractServer)

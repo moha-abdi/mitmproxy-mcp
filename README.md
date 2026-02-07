@@ -35,7 +35,7 @@ scripts:
   - /absolute/path/to/mitmproxy-mcp/addon.py
 
 mcp_transport: sse
-mcp_port: 9876
+mcp_port: 9011
 ```
 
 Then just start mitmproxy normally:
@@ -46,7 +46,7 @@ mitmweb        # web interface
 mitmdump       # headless
 ```
 
-The MCP server starts automatically on port 9876.
+The MCP server starts automatically on port 9011.
 
 ### Connecting from OpenCode
 
@@ -57,7 +57,7 @@ Add to `~/.config/opencode/opencode.json`:
   "mcp": {
     "mitmproxy": {
       "type": "local",
-      "command": ["npx", "-y", "supergateway", "--sse", "http://127.0.0.1:9876/sse"],
+      "command": ["npx", "-y", "supergateway", "--sse", "http://127.0.0.1:9011/sse"],
       "enabled": true
     }
   }
@@ -133,14 +133,14 @@ Pass via `--set` flag or set in `~/.mitmproxy/config.yaml`:
 | Option | Default | Description |
 |--------|---------|-------------|
 | `mcp_transport` | `stdio` | Transport: `stdio`, `sse`, or `tcp` |
-| `mcp_port` | `9876` | Port for SSE/TCP transport |
+| `mcp_port` | `9011` | Port for SSE/TCP transport |
 | `mcp_max_flows` | `1000` | Max flows to keep in memory (oldest evicted first) |
 | `mcp_redact_patterns` | built-in | Additional redaction patterns as JSON array |
 
 Example:
 
 ```bash
-mitmdump -s addon.py --set mcp_transport=sse --set mcp_port=9876 --set mcp_max_flows=5000
+mitmdump -s addon.py --set mcp_transport=sse --set mcp_port=9011 --set mcp_max_flows=5000
 ```
 
 ## Privacy
