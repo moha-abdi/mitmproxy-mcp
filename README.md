@@ -245,7 +245,8 @@ Pass via `--set` flag or set in `~/.mitmproxy/config.yaml`:
 | `mcp_transport` | `stdio` | Transport: `stdio`, `sse`, or `tcp` |
 | `mcp_port` | `9011` | Port for SSE/TCP transport |
 | `mcp_max_flows` | `1000` | Max flows to keep in memory (oldest evicted first) |
-| `mcp_redact_patterns` | built-in | Additional redaction patterns as JSON array |
+| `mcp_redact` | `false` | Redact sensitive data (tokens, keys, passwords) before sending to AI |
+| `mcp_redact_patterns` | _(empty)_ | Additional redaction patterns as JSON array (requires `mcp_redact: true`) |
 
 Example:
 
@@ -255,7 +256,19 @@ mitmdump -s addon.py --set mcp_transport=sse --set mcp_port=9011 --set mcp_max_f
 
 ## Privacy
 
-Sensitive data is redacted automatically before reaching the AI:
+By default, redaction is off -- you see the raw traffic as-is. To enable it, set `mcp_redact` to `true` in your config or via flags:
+
+```yaml
+# ~/.mitmproxy/config.yaml
+mcp_redact: true
+```
+
+```bash
+# or via flags
+mitmdump -s addon.py --set mcp_redact=true
+```
+
+When enabled, the following are automatically redacted before reaching the AI:
 
 - Bearer tokens, Basic auth credentials
 - API keys (header and query parameter)
@@ -265,10 +278,10 @@ Sensitive data is redacted automatically before reaching the AI:
 
 Request and response bodies are truncated to 10KB to prevent context overflow.
 
-You can add custom patterns:
+You can also add custom redaction patterns:
 
 ```bash
-mitmdump -s addon.py --set mcp_redact_patterns='["internal_secret", "x-custom-key"]'
+mitmdump -s addon.py --set mcp_redact=true --set mcp_redact_patterns='["internal_secret", "x-custom-key"]'
 ```
 
 ## Project structure

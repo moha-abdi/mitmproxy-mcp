@@ -135,7 +135,8 @@ The MCP server starts automatically at `http://localhost:9011/sse`.
 | `mcp_transport` | `stdio` | Transport: `stdio`, `sse`, or `tcp` |
 | `mcp_port` | `9011` | Port for SSE/TCP transport |
 | `mcp_max_flows` | `1000` | Max flows in memory (oldest evicted first) |
-| `mcp_redact_patterns` | built-in | Additional redaction patterns as JSON array |
+| `mcp_redact` | `false` | Enable privacy redaction of sensitive data |
+| `mcp_redact_patterns` | _(empty)_ | Additional redaction patterns as JSON array (requires `mcp_redact: true`) |
 
 ---
 

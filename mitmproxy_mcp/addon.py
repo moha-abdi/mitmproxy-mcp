@@ -28,7 +28,7 @@ from .transport import (
     start_sse_transport,
     serve_with_tcp,
 )
-from .privacy import init_redaction_engine
+from .privacy import init_redaction_engine, reset_redaction_engine
 
 
 class MCPAddon:
@@ -37,7 +37,6 @@ class MCPAddon:
         self._server_task: Optional[asyncio.Task] = None
         self._storage = FlowStorage()
         set_storage(self._storage)
-        init_redaction_engine()
 
         self._register_tools()
 
@@ -80,6 +79,12 @@ class MCPAddon:
         loader.add_option("mcp_port", int, 9011, "MCP server port (for sse/tcp)")
         loader.add_option("mcp_max_flows", int, 1000, "Maximum flows to store")
         loader.add_option(
+            "mcp_redact",
+            bool,
+            False,
+            "Redact sensitive data (tokens, keys, passwords) before sending to AI",
+        )
+        loader.add_option(
             "mcp_redact_patterns",
             str,
             "",
@@ -92,14 +97,17 @@ class MCPAddon:
             self._storage = FlowStorage(max_flows=max_flows)
             set_storage(self._storage)
 
-        if "mcp_redact_patterns" in updated:
-            patterns_str = cast(str, ctx.options.mcp_redact_patterns)
-            custom_patterns = None
-            if patterns_str:
-                import json
+        if "mcp_redact" in updated or "mcp_redact_patterns" in updated:
+            if ctx.options.mcp_redact:
+                patterns_str = cast(str, ctx.options.mcp_redact_patterns)
+                custom_patterns = None
+                if patterns_str:
+                    import json
 
-                custom_patterns = json.loads(patterns_str)
-            init_redaction_engine(custom_patterns)
+                    custom_patterns = json.loads(patterns_str)
+                init_redaction_engine(custom_patterns)
+            else:
+                reset_redaction_engine()
 
     def running(self) -> None:
         loop = asyncio.get_running_loop()

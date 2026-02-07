@@ -88,7 +88,7 @@ The addon and MCP server start automatically if configured in `~/.mitmproxy/conf
 
 ## Important Notes
 
-- Sensitive data (tokens, passwords, API keys, JWTs) is automatically redacted in tool responses
+- Sensitive data redaction is off by default. Enable with `mcp_redact: true` in mitmproxy config to redact tokens, passwords, API keys, and JWTs
 - Request/response bodies are truncated to 10KB to prevent context overflow
 - All data is in-memory only -- cleared when mitmproxy stops
 - The proxy stores up to 1000 flows by default (oldest evicted first)
