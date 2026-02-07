@@ -35,7 +35,7 @@ mitmproxy-mcp = "mitmproxy_mcp.__main__:main"
 packages = ["mitmproxy_mcp"]
 
 [tool.ruff]
-exclude = ["poc/", "test_transports.py"]
+exclude = ["poc/"]
 
 [tool.mypy]
 ignore_missing_imports = true

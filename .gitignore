@@ -52,3 +52,9 @@ dmypy.json
 
 # ruff
 .ruff_cache/
+
+# agent workspace
+.sisyphus/
+
+# coverage reports
+htmlcov/
