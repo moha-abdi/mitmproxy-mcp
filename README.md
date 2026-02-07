@@ -78,10 +78,16 @@ Add to `opencode.json` in your project root, or `~/.config/opencode/opencode.jso
 <details>
 <summary><b>Claude Code</b></summary>
 
-Via the CLI:
+Via the CLI (project-level):
 
 ```bash
 claude mcp add --transport sse mitmproxy http://localhost:9011/sse
+```
+
+To add globally across all projects:
+
+```bash
+claude mcp add --scope user --transport sse mitmproxy http://localhost:9011/sse
 ```
 
 Or add manually to `~/.claude.json`:
