@@ -27,6 +27,7 @@ from .transport import (
     start_stdio_transport,
     start_sse_transport,
     serve_with_tcp,
+    shutdown_sse_server,
 )
 from .privacy import init_redaction_engine, reset_redaction_engine
 
@@ -141,6 +142,7 @@ class MCPAddon:
         self._storage.add(flow)
 
     def done(self) -> None:
+        shutdown_sse_server()
         if self._server_task is not None:
             self._server_task.cancel()
 

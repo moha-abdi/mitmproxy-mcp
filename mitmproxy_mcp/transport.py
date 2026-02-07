@@ -7,7 +7,7 @@ Supports three transport types:
 """
 
 import asyncio
-from typing import Literal, Union
+from typing import Any, Literal, Optional, Union
 
 import anyio
 from anyio.streams.memory import MemoryObjectReceiveStream, MemoryObjectSendStream
@@ -18,6 +18,8 @@ from mcp.shared.message import SessionMessage
 import mcp.types as types
 
 TransportType = Literal["stdio", "sse", "tcp"]
+
+_uvicorn_server: Optional[Any] = None
 
 
 async def start_stdio_transport(server: Server) -> None:
@@ -55,15 +57,29 @@ async def start_sse_transport(
 
     sse = SseServerTransport("/messages/")
 
+    class _SseResponse(Response):
+        """Response that completes the ASGI cycle after SSE already sent headers."""
+
+        async def __call__(self, scope, receive, send):  # type: ignore[override]
+            try:
+                await send({"type": "http.response.body", "body": b""})
+            except Exception:
+                pass
+
     async def handle_sse(request: Request) -> Response:
-        async with sse.connect_sse(
-            request.scope,
-            request.receive,
-            request._send,  # type: ignore[attr-defined]
-        ) as streams:
-            init_options = server.create_initialization_options(NotificationOptions())
-            await server.run(streams[0], streams[1], init_options)
-        return Response()
+        try:
+            async with sse.connect_sse(
+                request.scope,
+                request.receive,
+                request._send,  # type: ignore[attr-defined]
+            ) as streams:
+                init_options = server.create_initialization_options(
+                    NotificationOptions()
+                )
+                await server.run(streams[0], streams[1], init_options)
+        except asyncio.CancelledError:
+            pass
+        return _SseResponse()
 
     app = Starlette(
         routes=[
@@ -72,9 +88,12 @@ async def start_sse_transport(
         ]
     )
 
-    config = uvicorn.Config(app, host=host, port=port, log_level="warning")
-    server_instance = uvicorn.Server(config)
-    await server_instance.serve()
+    global _uvicorn_server
+    config = uvicorn.Config(
+        app, host=host, port=port, log_level="warning", lifespan="off"
+    )
+    _uvicorn_server = uvicorn.Server(config)
+    await _uvicorn_server.serve()
 
 
 async def start_tcp_transport(
@@ -144,6 +163,12 @@ async def start_tcp_transport(
 
     tcp_server = await asyncio.start_server(handle_client, host, port)
     return tcp_server
+
+
+def shutdown_sse_server() -> None:
+    global _uvicorn_server
+    if _uvicorn_server is not None:
+        _uvicorn_server.should_exit = True
 
 
 async def serve_with_tcp(
