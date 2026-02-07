@@ -437,7 +437,7 @@ Current progress: **3/12 tasks complete** (POC, Scaffolding, Models)
 
 ## Contact & Resources
 
-- **Project Root**: `/Users/moha/Projects/mitmproxy_mcp/`
+- **Project Root**: `/Users/moha/Projects/mitmproxy-mcp/`
 - **Plan**: `.sisyphus/plans/mitmproxy-mcp-server.md`
 - **Notepad**: `.sisyphus/notepads/mitmproxy-mcp-server/`
 - **mitmproxy docs**: https://docs.mitmproxy.org/
