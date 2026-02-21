@@ -5,6 +5,7 @@ import json
 from datetime import datetime
 
 import mcp.types as types
+from mitmproxy import ctx
 from mitmproxy import flowfilter
 
 from ..storage import get_storage
@@ -14,13 +15,60 @@ _intercept_filter: Optional[str] = None
 _parsed_filter: Optional[flowfilter.TFilter] = None
 
 
+def _sync_mitmproxy_intercept_option(filter_str: str) -> bool:
+    options = getattr(ctx, "options", None)
+    if options is None:
+        return False
+
+    option_value = filter_str or None
+
+    try:
+        update = getattr(options, "update", None)
+        if callable(update):
+            update(intercept=option_value)
+        else:
+            setattr(options, "intercept", option_value)
+            if hasattr(options, "intercept_active"):
+                setattr(options, "intercept_active", bool(filter_str))
+    except Exception:
+        return False
+
+    return True
+
+
 def get_intercept_filter() -> Optional[str]:
     """Get the current intercept filter string."""
+    options = getattr(ctx, "options", None)
+    if options is not None:
+        option_filter = getattr(options, "intercept", None)
+        if option_filter is None or isinstance(option_filter, str):
+            return option_filter
+
     return _intercept_filter
 
 
 def get_parsed_filter() -> Optional[flowfilter.TFilter]:
     """Get the parsed intercept filter for matching."""
+    global _intercept_filter, _parsed_filter
+
+    filter_str = get_intercept_filter() or ""
+    if filter_str == (_intercept_filter or ""):
+        return _parsed_filter
+
+    if not filter_str:
+        _intercept_filter = None
+        _parsed_filter = None
+        return None
+
+    try:
+        parsed = flowfilter.parse(filter_str)
+    except ValueError:
+        _intercept_filter = None
+        _parsed_filter = None
+        return None
+
+    _intercept_filter = filter_str
+    _parsed_filter = parsed
     return _parsed_filter
 
 
@@ -39,11 +87,14 @@ def set_intercept_filter_internal(filter_str: str) -> Dict[str, Any]:
     if not filter_str:
         _intercept_filter = None
         _parsed_filter = None
-        return {
+        result = {
             "status": "success",
             "filter": "",
             "message": "Interception disabled",
         }
+        if not _sync_mitmproxy_intercept_option(""):
+            result["warning"] = "Failed to sync intercept option to mitmproxy UI"
+        return result
 
     try:
         parsed = flowfilter.parse(filter_str)
@@ -63,11 +114,14 @@ def set_intercept_filter_internal(filter_str: str) -> Dict[str, Any]:
 
     _intercept_filter = filter_str
     _parsed_filter = parsed
-    return {
+    result = {
         "status": "success",
         "filter": filter_str,
         "message": f"Intercept filter set to: '{filter_str}'",
     }
+    if not _sync_mitmproxy_intercept_option(filter_str):
+        result["warning"] = "Failed to sync intercept option to mitmproxy UI"
+    return result
 
 
 INTERCEPT_TOOLS: List[types.Tool] = [
@@ -177,7 +231,7 @@ async def handle_intercept_tool(
 
         result = {
             "count": len(intercepted),
-            "current_filter": _intercept_filter,
+            "current_filter": get_intercept_filter(),
             "flows": intercepted,
         }
         return [types.TextContent(type="text", text=json.dumps(result, indent=2))]

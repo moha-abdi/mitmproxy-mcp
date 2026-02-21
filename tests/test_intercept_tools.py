@@ -1,4 +1,5 @@
 import json
+from unittest.mock import MagicMock, patch
 
 import pytest
 from mitmproxy.test import tflow
@@ -86,6 +87,19 @@ class TestSetInterceptFilterTool:
         assert data["filter"] == "~u example"
 
     @pytest.mark.asyncio
+    async def test_set_filter_via_tool_syncs_mitmproxy_option(self):
+        with patch("mitmproxy_mcp.tools.intercept.ctx") as mock_ctx:
+            mock_ctx.options.update = MagicMock()
+
+            result = await handle_intercept_tool(
+                "set_intercept_filter", {"filter": "~u example"}
+            )
+            data = json.loads(result[0].text)
+
+        assert data["status"] == "success"
+        mock_ctx.options.update.assert_called_once_with(intercept="~u example")
+
+    @pytest.mark.asyncio
     async def test_clear_filter_via_tool(self):
         set_intercept_filter_internal("~u test")
 
@@ -94,6 +108,17 @@ class TestSetInterceptFilterTool:
 
         assert data["status"] == "success"
         assert data["message"] == "Interception disabled"
+
+    @pytest.mark.asyncio
+    async def test_clear_filter_via_tool_syncs_mitmproxy_option(self):
+        with patch("mitmproxy_mcp.tools.intercept.ctx") as mock_ctx:
+            mock_ctx.options.update = MagicMock()
+
+            result = await handle_intercept_tool("set_intercept_filter", {"filter": ""})
+            data = json.loads(result[0].text)
+
+        assert data["status"] == "success"
+        mock_ctx.options.update.assert_called_once_with(intercept=None)
 
 
 class TestGetInterceptedFlows:
@@ -135,6 +160,18 @@ class TestGetInterceptedFlows:
         data = json.loads(result[0].text)
 
         assert data["current_filter"] == "~u api"
+
+    @pytest.mark.asyncio
+    async def test_current_filter_reflects_mitmproxy_option(self):
+        set_intercept_filter_internal("~u stale")
+
+        with patch("mitmproxy_mcp.tools.intercept.ctx") as mock_ctx:
+            mock_ctx.options.intercept = "~u from-ui"
+
+            result = await handle_intercept_tool("get_intercepted_flows", {})
+            data = json.loads(result[0].text)
+
+        assert data["current_filter"] == "~u from-ui"
 
 
 class TestResumeFlow:
