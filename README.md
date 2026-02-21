@@ -30,6 +30,18 @@ mitmproxy-mcp install-shims --force
 
 Requires Python 3.10+ and mitmproxy >= 10.0.0.
 
+## Agent Skill (optional)
+
+This repo also ships a skill definition in `SKILL.md` for the `npx skills` ecosystem.
+
+Install it with:
+
+```bash
+npx skills add moha-abdi/mitmproxy-mcp
+```
+
+After installing, compatible coding agents can load the `mitmproxy-mcp` skill and get project-specific usage guidance.
+
 ## Setup
 
 ### 1. Configure mitmproxy
