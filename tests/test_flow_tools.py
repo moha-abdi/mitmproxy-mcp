@@ -43,6 +43,23 @@ class TestFlowStorage:
         assert cleared == 5
         assert self.storage.count() == 0
 
+    def test_remove(self):
+        flow = tflow.tflow(resp=True)
+        self.storage.add(flow)
+
+        removed = self.storage.remove(flow.id)
+        assert removed is True
+        assert self.storage.get(flow.id) is None
+        assert self.storage.count() == 0
+
+    def test_ids(self):
+        flow1 = tflow.tflow(resp=True)
+        flow2 = tflow.tflow(resp=True)
+        self.storage.add(flow1)
+        self.storage.add(flow2)
+
+        assert self.storage.ids() == [flow1.id, flow2.id]
+
     def test_fifo_eviction(self):
         storage = FlowStorage(max_flows=3)
         flows = [tflow.tflow(resp=True) for _ in range(5)]
@@ -226,25 +243,30 @@ class TestFlowTools:
     async def test_clear_flows_clears_view_when_available(self):
         with patch("mitmproxy_mcp.tools.flows.ctx") as mock_ctx:
             mock_view = MagicMock()
+            mock_view._store = {}
             mock_ctx.options.mcp_view_sync_actions = "all"
             mock_ctx.master.addons.get.return_value = mock_view
 
             await handle_flow_tool("clear_flows", {})
 
-            mock_ctx.master.addons.get.assert_called_once_with("view")
+            assert mock_ctx.master.addons.get.call_count == 2
             mock_view.clear.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_clear_flows_without_clear_sync_does_not_touch_view(self):
         with patch("mitmproxy_mcp.tools.flows.ctx") as mock_ctx:
+            mock_view = MagicMock()
+            mock_view._store = {}
             mock_ctx.options.mcp_view_sync_actions = "replay"
+            mock_ctx.master.addons.get.return_value = mock_view
 
             result = await handle_flow_tool("clear_flows", {})
             data = json.loads(result[0].text)
 
-            assert data["cleared"] == 3
+            assert data["cleared"] == 0
             assert self.storage.count() == 0
-            assert mock_ctx.master.addons.get.call_count == 0
+            assert mock_ctx.master.addons.get.call_count == 1
+            mock_view.clear.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_get_flow_count(self):
@@ -253,6 +275,65 @@ class TestFlowTools:
 
         assert data["count"] == 3
         assert data["max_flows"] == 100
+
+    @pytest.mark.asyncio
+    async def test_get_flow_count_syncs_loaded_view_flows(self):
+        view_flow1 = tflow.tflow(resp=True)
+        view_flow2 = tflow.tflow(resp=True)
+        view_store = {
+            view_flow1.id: view_flow1,
+            view_flow2.id: view_flow2,
+        }
+
+        with patch("mitmproxy_mcp.tools.flows.ctx") as mock_ctx:
+            mock_view = MagicMock()
+            mock_view._store = view_store
+            mock_ctx.master.addons.get.return_value = mock_view
+
+            result = await handle_flow_tool("get_flow_count", {})
+            data = json.loads(result[0].text)
+
+        assert data["count"] == 2
+        assert self.storage.count() == 2
+
+    @pytest.mark.asyncio
+    async def test_get_flow_count_syncs_view_clear(self):
+        view_flow = tflow.tflow(resp=True)
+        view_store = {view_flow.id: view_flow}
+
+        with patch("mitmproxy_mcp.tools.flows.ctx") as mock_ctx:
+            mock_view = MagicMock()
+            mock_view._store = view_store
+            mock_ctx.master.addons.get.return_value = mock_view
+
+            result = await handle_flow_tool("get_flow_count", {})
+            data = json.loads(result[0].text)
+            assert data["count"] == 1
+
+            mock_view._store = {}
+            result = await handle_flow_tool("get_flow_count", {})
+            data = json.loads(result[0].text)
+
+        assert data["count"] == 0
+        assert self.storage.count() == 0
+
+    @pytest.mark.asyncio
+    async def test_get_flow_count_keeps_mcp_tool_only_flows(self):
+        self.storage.clear()
+        mcp_flow = tflow.tflow(resp=True)
+        mcp_flow.metadata["mcp_source"] = "mcp_tool"
+        self.storage.add(mcp_flow)
+
+        with patch("mitmproxy_mcp.tools.flows.ctx") as mock_ctx:
+            mock_view = MagicMock()
+            mock_view._store = {}
+            mock_ctx.master.addons.get.return_value = mock_view
+
+            result = await handle_flow_tool("get_flow_count", {})
+            data = json.loads(result[0].text)
+
+        assert data["count"] == 1
+        assert self.storage.count() == 1
 
     @pytest.mark.asyncio
     async def test_export_flows_har(self):

@@ -308,6 +308,69 @@ def _clear_mitmproxy_view() -> None:
         pass
 
 
+def _set_flow_source(flow: Any, source: str) -> None:
+    metadata = getattr(flow, "metadata", None)
+    if isinstance(metadata, dict):
+        metadata["mcp_source"] = source
+
+
+def _get_flow_source(flow: Any) -> str | None:
+    metadata = getattr(flow, "metadata", None)
+    if isinstance(metadata, dict):
+        source = metadata.get("mcp_source")
+        if isinstance(source, str):
+            return source
+    return None
+
+
+def _sync_storage_from_mitmproxy_view(storage: Any) -> None:
+    master = getattr(ctx, "master", None)
+    if master is None:
+        return
+
+    addons = getattr(master, "addons", None)
+    if addons is None:
+        return
+
+    try:
+        view_addon = addons.get("view")
+    except Exception:
+        return
+
+    if view_addon is None:
+        return
+
+    view_store = getattr(view_addon, "_store", None)
+    if not isinstance(view_store, dict):
+        return
+
+    view_flows = []
+    for flow in view_store.values():
+        if not getattr(flow, "id", None):
+            continue
+        if not getattr(flow, "request", None):
+            continue
+        view_flows.append(flow)
+
+    view_ids = {flow.id for flow in view_flows}
+
+    for flow in view_flows:
+        _set_flow_source(flow, "mitmproxy")
+        storage.add(flow)
+
+    for flow_id in storage.ids():
+        if flow_id in view_ids:
+            continue
+
+        flow = storage.get(flow_id)
+        if flow is None:
+            continue
+        if _get_flow_source(flow) == "mcp_tool":
+            continue
+
+        storage.remove(flow_id)
+
+
 async def handle_flow_tool(
     name: str, arguments: Dict[str, Any]
 ) -> List[types.TextContent]:
@@ -321,6 +384,7 @@ async def handle_flow_tool(
         List of TextContent with JSON result
     """
     storage = get_storage()
+    _sync_storage_from_mitmproxy_view(storage)
 
     if name == "get_flows":
         offset = arguments.get("offset", 0)
