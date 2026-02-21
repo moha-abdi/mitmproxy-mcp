@@ -8,7 +8,7 @@ MCP server for [mitmproxy](https://github.com/mitmproxy/mitmproxy) that lets any
 
 ## What is this
 
-mitmproxy-mcp runs as a mitmproxy addon. It embeds an [MCP](https://modelcontextprotocol.io/) server directly in the proxy process, giving AI agents access to 20 tools for traffic analysis, request replay, interception control, and proxy configuration.
+mitmproxy-mcp runs as a mitmproxy addon. It embeds an [MCP](https://modelcontextprotocol.io/) server directly in the proxy process, giving AI agents access to 22 tools for traffic analysis, request replay, interception control, and proxy configuration.
 
 All captured data stays in-memory. Sensitive values (tokens, passwords, API keys, JWTs) are automatically redacted before being sent to the AI.
 
@@ -213,7 +213,7 @@ npx -y supergateway --sse http://127.0.0.1:9011/sse
 
 ## Tools
 
-### Flow tools (8)
+### Flow tools (10)
 
 | Tool | Description |
 |------|-------------|
@@ -222,6 +222,8 @@ npx -y supergateway --sse http://127.0.0.1:9011/sse
 | `search_flows` | Search flows by regex pattern |
 | `get_flow_request` | Get request details |
 | `get_flow_response` | Get response details |
+| `mark_flow` | Mark a flow (same behavior as UI mark action) |
+| `unmark_flow` | Remove mark from a flow |
 | `clear_flows` | Clear all captured flows (and UI view when sync includes `clear`) |
 | `get_flow_count` | Count captured flows |
 | `export_flows` | Export flows to HAR format |

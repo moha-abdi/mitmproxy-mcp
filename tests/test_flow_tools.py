@@ -230,6 +230,57 @@ class TestFlowTools:
         assert "error" in data
 
     @pytest.mark.asyncio
+    async def test_mark_flow(self):
+        flow = self.storage.get_all(limit=1)[0]
+        assert flow.marked == ""
+
+        result = await handle_flow_tool("mark_flow", {"flow_id": flow.id})
+        data = json.loads(result[0].text)
+
+        assert data["status"] == "success"
+        assert data["flow_id"] == flow.id
+        assert data["marker"] == ":default:"
+        assert flow.marked == ":default:"
+
+    @pytest.mark.asyncio
+    async def test_unmark_flow(self):
+        flow = self.storage.get_all(limit=1)[0]
+        flow.marked = ":default:"
+
+        result = await handle_flow_tool("unmark_flow", {"flow_id": flow.id})
+        data = json.loads(result[0].text)
+
+        assert data["status"] == "success"
+        assert data["flow_id"] == flow.id
+        assert data["marker"] == ""
+        assert flow.marked == ""
+
+    @pytest.mark.asyncio
+    async def test_mark_flow_triggers_mitmproxy_update(self):
+        flow = self.storage.get_all(limit=1)[0]
+
+        with patch("mitmproxy_mcp.tools.flows.ctx") as mock_ctx:
+            mock_ctx.master.addons.get.return_value = None
+
+            result = await handle_flow_tool("mark_flow", {"flow_id": flow.id})
+            data = json.loads(result[0].text)
+
+            assert data["status"] == "success"
+            mock_ctx.master.addons.trigger.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_mark_flow_not_found(self):
+        result = await handle_flow_tool("mark_flow", {"flow_id": "nonexistent"})
+        data = json.loads(result[0].text)
+        assert "error" in data
+
+    @pytest.mark.asyncio
+    async def test_unmark_flow_not_found(self):
+        result = await handle_flow_tool("unmark_flow", {"flow_id": "nonexistent"})
+        data = json.loads(result[0].text)
+        assert "error" in data
+
+    @pytest.mark.asyncio
     async def test_clear_flows(self):
         assert self.storage.count() == 3
 
@@ -409,6 +460,8 @@ class TestToolDefinitions:
             "search_flows",
             "get_flow_request",
             "get_flow_response",
+            "mark_flow",
+            "unmark_flow",
             "clear_flows",
             "get_flow_count",
             "export_flows",

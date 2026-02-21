@@ -5,7 +5,7 @@ import json
 from datetime import datetime
 
 import mcp.types as types
-from mitmproxy import ctx
+from mitmproxy import ctx, hooks
 
 from ..storage import get_storage
 from ..models import FlowDetail, RequestModel, ResponseModel
@@ -105,6 +105,36 @@ FLOW_TOOLS: List[types.Tool] = [
     types.Tool(
         name="get_flow_response",
         description="Get only the response portion of a flow",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "flow_id": {
+                    "type": "string",
+                    "description": "Unique flow identifier",
+                },
+            },
+            "required": ["flow_id"],
+            "additionalProperties": False,
+        },
+    ),
+    types.Tool(
+        name="mark_flow",
+        description="Mark a flow in mitmproxy (equivalent to marking from UI)",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "flow_id": {
+                    "type": "string",
+                    "description": "Unique flow identifier",
+                },
+            },
+            "required": ["flow_id"],
+            "additionalProperties": False,
+        },
+    ),
+    types.Tool(
+        name="unmark_flow",
+        description="Remove mark from a flow in mitmproxy",
         inputSchema={
             "type": "object",
             "properties": {
@@ -304,6 +334,25 @@ def _clear_mitmproxy_view() -> None:
         view_addon = addons.get("view")
         if view_addon is not None and hasattr(view_addon, "clear"):
             view_addon.clear()
+    except Exception:
+        pass
+
+
+def _notify_flow_updated(flow: Any) -> None:
+    master = getattr(ctx, "master", None)
+    if master is None:
+        return
+
+    addons = getattr(master, "addons", None)
+    if addons is None:
+        return
+
+    trigger = getattr(addons, "trigger", None)
+    if not callable(trigger):
+        return
+
+    try:
+        trigger(hooks.UpdateHook([flow]))
     except Exception:
         pass
 
@@ -522,6 +571,58 @@ async def handle_flow_tool(
         return [
             types.TextContent(type="text", text=json.dumps(response_dict, indent=2))
         ]
+
+    elif name == "mark_flow":
+        flow_id = arguments.get("flow_id")
+        if not flow_id:
+            return [
+                types.TextContent(type="text", text='{"error": "flow_id is required"}')
+            ]
+
+        flow = storage.get(flow_id)
+        if not flow:
+            return [
+                types.TextContent(
+                    type="text", text=f'{{"error": "Flow not found: {flow_id}"}}'
+                )
+            ]
+
+        flow.marked = ":default:"
+        _notify_flow_updated(flow)
+
+        result = {
+            "status": "success",
+            "flow_id": flow_id,
+            "marker": flow.marked,
+            "message": "Flow marked",
+        }
+        return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
+
+    elif name == "unmark_flow":
+        flow_id = arguments.get("flow_id")
+        if not flow_id:
+            return [
+                types.TextContent(type="text", text='{"error": "flow_id is required"}')
+            ]
+
+        flow = storage.get(flow_id)
+        if not flow:
+            return [
+                types.TextContent(
+                    type="text", text=f'{{"error": "Flow not found: {flow_id}"}}'
+                )
+            ]
+
+        flow.marked = ""
+        _notify_flow_updated(flow)
+
+        result = {
+            "status": "success",
+            "flow_id": flow_id,
+            "marker": "",
+            "message": "Flow unmarked",
+        }
+        return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
 
     elif name == "clear_flows":
         count = storage.clear()
