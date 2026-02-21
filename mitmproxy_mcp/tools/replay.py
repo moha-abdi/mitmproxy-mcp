@@ -1,5 +1,6 @@
 """MCP tools for replaying and modifying HTTP requests."""
 
+import asyncio
 from typing import List, Optional, Dict, Any
 import json
 import uuid
@@ -7,17 +8,18 @@ import time
 
 import httpx
 import mcp.types as types
-from mitmproxy import http
+from mitmproxy import connection, ctx, http
 
 from ..storage import get_storage
 from ..models import FlowDetail
 from ..privacy import get_redaction_engine
+from ..view_sync import should_sync_action
 
 
 REPLAY_TOOLS: List[types.Tool] = [
     types.Tool(
         name="replay_request",
-        description="Replay a captured request as-is. Creates a new flow with the replayed request/response.",
+        description="Replay a captured request as-is. When mcp_view_sync_actions includes replay, the original flow is replayed in-place; otherwise a detached replay flow is created.",
         inputSchema={
             "type": "object",
             "properties": {
@@ -32,7 +34,7 @@ REPLAY_TOOLS: List[types.Tool] = [
     ),
     types.Tool(
         name="send_request",
-        description="Send an arbitrary HTTP request. Creates a new flow with the request/response.",
+        description="Send an arbitrary HTTP request. Creates a new flow with the request/response, and adds it to mitmproxy's view based on mcp_view_sync_actions (action: replay).",
         inputSchema={
             "type": "object",
             "properties": {
@@ -61,7 +63,7 @@ REPLAY_TOOLS: List[types.Tool] = [
     ),
     types.Tool(
         name="modify_and_send",
-        description="Modify a captured request and send it. Allows changing method, URL, headers, or body.",
+        description="Modify a captured request and send it. Allows changing method, URL, headers, or body, and adds the resulting flow to mitmproxy's view based on mcp_view_sync_actions (action: replay).",
         inputSchema={
             "type": "object",
             "properties": {
@@ -98,7 +100,7 @@ REPLAY_TOOLS: List[types.Tool] = [
     ),
     types.Tool(
         name="duplicate_flow",
-        description="Clone a flow for modification. Creates a copy with a new ID without sending.",
+        description="Clone a flow for modification. Creates a copy with a new ID without sending, and adds it to mitmproxy's view based on mcp_view_sync_actions (action: replay).",
         inputSchema={
             "type": "object",
             "properties": {
@@ -141,31 +143,35 @@ def _create_flow_from_params(
         headers=headers_list,
     )
 
-    flow = http.HTTPFlow(
-        client_conn=None,  # type: ignore
-        server_conn=None,  # type: ignore
+    return _create_synthetic_flow(request)
+
+
+def _create_synthetic_flow(request: http.Request) -> http.HTTPFlow:
+    timestamp_start = request.timestamp_start or time.time()
+    client_conn = connection.Client(
+        peername=("127.0.0.1", 0),
+        sockname=("0.0.0.0", 0),
+        timestamp_start=timestamp_start,
     )
+    server_conn = connection.Server(address=(request.host, request.port))
+
+    flow = http.HTTPFlow(client_conn=client_conn, server_conn=server_conn)
     flow.request = request
     flow.id = str(uuid.uuid4())
-
     return flow
 
 
 def _duplicate_flow(original: http.HTTPFlow) -> http.HTTPFlow:
-    new_flow = http.HTTPFlow(
-        client_conn=None,  # type: ignore
-        server_conn=None,  # type: ignore
-    )
-
     headers_bytes = [
         (k.encode(), v.encode()) for k, v in original.request.headers.items()
     ]
-    new_flow.request = http.Request.make(
+    request = http.Request.make(
         method=original.request.method,
         url=original.request.url,
         content=original.request.content or b"",
         headers=headers_bytes,
     )
+    new_flow = _create_synthetic_flow(request)
 
     if original.response:
         resp_headers_bytes = [
@@ -182,9 +188,72 @@ def _duplicate_flow(original: http.HTTPFlow) -> http.HTTPFlow:
     return new_flow
 
 
+def _should_add_replay_flow_to_view() -> bool:
+    return should_sync_action("replay", getattr(ctx, "options", None))
+
+
+def _add_flow_to_view(flow: http.HTTPFlow) -> None:
+    if not _should_add_replay_flow_to_view():
+        return
+
+    master = getattr(ctx, "master", None)
+    if master is None:
+        return
+
+    addons = getattr(master, "addons", None)
+    if addons is None:
+        return
+
+    try:
+        view_addon = addons.get("view")
+        if view_addon is not None and hasattr(view_addon, "add"):
+            view_addon.add([flow])
+    except Exception:
+        pass
+
+
+def _record_flow(storage, flow: http.HTTPFlow) -> None:
+    storage.add(flow)
+    _add_flow_to_view(flow)
+
+
 def _remove_httpx_managed_headers(headers: Dict[str, str]) -> Dict[str, str]:
     managed_headers = {"content-length", "transfer-encoding", "host"}
     return {k: v for k, v in headers.items() if k.lower() not in managed_headers}
+
+
+async def _replay_request_in_place(flow: http.HTTPFlow) -> http.HTTPFlow:
+    from mitmproxy.flow import Error as FlowError
+
+    master = getattr(ctx, "master", None)
+    if master is None:
+        flow.error = FlowError("mitmproxy master is unavailable for replay")
+        return flow
+
+    commands = getattr(master, "commands", None)
+    if commands is None:
+        flow.error = FlowError("mitmproxy commands are unavailable for replay")
+        return flow
+
+    try:
+        commands.call("replay.client", [flow])
+    except Exception as e:
+        flow.error = FlowError(f"Failed to queue replay: {str(e)}")
+        return flow
+
+    if getattr(flow, "is_replay", None) != "request":
+        flow.error = FlowError("Flow could not be queued for replay")
+        return flow
+
+    start = time.time()
+    timeout_seconds = 30.0
+    while flow.response is None and flow.error is None:
+        if (time.time() - start) >= timeout_seconds:
+            flow.error = FlowError("Replay timed out waiting for response")
+            break
+        await asyncio.sleep(0.01)
+
+    return flow
 
 
 async def _send_http_request(flow: http.HTTPFlow) -> http.HTTPFlow:
@@ -245,17 +314,24 @@ async def handle_replay_tool(
                 )
             ]
 
-        new_flow = _duplicate_flow(original)
-        new_flow = await _send_http_request(new_flow)
-        storage.add(new_flow)
+        if _should_add_replay_flow_to_view():
+            replayed_flow = await _replay_request_in_place(original)
+            storage.add(replayed_flow)
+        else:
+            replayed_flow = _duplicate_flow(original)
+            replayed_flow = await _send_http_request(replayed_flow)
+            _record_flow(storage, replayed_flow)
 
         result = {
             "original_flow_id": flow_id,
-            "new_flow_id": new_flow.id,
-            "status": "success" if new_flow.response else "error",
-            "status_code": new_flow.response.status_code if new_flow.response else None,
-            "error": str(new_flow.error)
-            if hasattr(new_flow, "error") and new_flow.error
+            "new_flow_id": replayed_flow.id,
+            "replayed_in_place": replayed_flow.id == flow_id,
+            "status": "success" if replayed_flow.response else "error",
+            "status_code": replayed_flow.response.status_code
+            if replayed_flow.response
+            else None,
+            "error": str(replayed_flow.error)
+            if hasattr(replayed_flow, "error") and replayed_flow.error
             else None,
         }
         return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
@@ -271,7 +347,7 @@ async def handle_replay_tool(
 
         new_flow = _create_flow_from_params(method, url, headers, body)
         new_flow = await _send_http_request(new_flow)
-        storage.add(new_flow)
+        _record_flow(storage, new_flow)
 
         result = {
             "flow_id": new_flow.id,
@@ -307,6 +383,10 @@ async def handle_replay_tool(
 
         if "url" in arguments and arguments["url"]:
             new_flow.request.url = arguments["url"]
+            new_flow.server_conn.address = (
+                new_flow.request.host,
+                new_flow.request.port,
+            )
 
         if "remove_headers" in arguments:
             for header_name in arguments["remove_headers"]:
@@ -323,7 +403,7 @@ async def handle_replay_tool(
 
         new_flow.response = None
         new_flow = await _send_http_request(new_flow)
-        storage.add(new_flow)
+        _record_flow(storage, new_flow)
 
         result = {
             "original_flow_id": flow_id,
@@ -359,7 +439,7 @@ async def handle_replay_tool(
             ]
 
         new_flow = _duplicate_flow(original)
-        storage.add(new_flow)
+        _record_flow(storage, new_flow)
 
         detail = FlowDetail.from_mitmproxy(new_flow)
         flow_dict = json.loads(detail.model_dump_json())

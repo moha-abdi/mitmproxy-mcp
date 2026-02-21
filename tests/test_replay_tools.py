@@ -2,6 +2,7 @@ import json
 
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
+from mitmproxy import http
 from mitmproxy.test import tflow
 
 from mitmproxy_mcp.storage import FlowStorage, set_storage
@@ -83,8 +84,11 @@ class TestDuplicateFlow:
         original = tflow.tflow(resp=True)
         duplicate = _duplicate_flow(original)
 
-        assert duplicate.response is not None
-        assert duplicate.response.status_code == original.response.status_code
+        duplicate_response = duplicate.response
+        original_response = original.response
+        assert duplicate_response is not None
+        assert original_response is not None
+        assert duplicate_response.status_code == original_response.status_code
 
     def test_duplicate_without_response(self):
         original = tflow.tflow(resp=False)
@@ -94,6 +98,8 @@ class TestDuplicateFlow:
 
 
 class TestDuplicateFlowTool:
+    storage: FlowStorage = FlowStorage(max_flows=100)
+
     def setup_method(self):
         self.storage = FlowStorage(max_flows=100)
         set_storage(self.storage)
@@ -129,6 +135,8 @@ class TestDuplicateFlowTool:
 
 
 class TestReplayRequestTool:
+    storage: FlowStorage = FlowStorage(max_flows=100)
+
     def setup_method(self):
         self.storage = FlowStorage(max_flows=100)
         set_storage(self.storage)
@@ -177,6 +185,8 @@ class TestReplayRequestTool:
 
 
 class TestSendRequestTool:
+    storage: FlowStorage = FlowStorage(max_flows=100)
+
     def setup_method(self):
         self.storage = FlowStorage(max_flows=100)
         set_storage(self.storage)
@@ -244,7 +254,166 @@ class TestSendRequestTool:
             assert data["method"] == "GET"
 
 
+class TestReplayToolsViewIntegration:
+    storage: FlowStorage = FlowStorage(max_flows=100)
+
+    def setup_method(self):
+        self.storage = FlowStorage(max_flows=100)
+        set_storage(self.storage)
+
+    @pytest.mark.asyncio
+    async def test_send_request_adds_flow_to_view_when_enabled(self):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.content = b""
+        mock_response.headers = {}
+
+        with patch("mitmproxy_mcp.tools.replay.ctx") as mock_ctx:
+            mock_view = MagicMock()
+            mock_ctx.options.mcp_view_sync_actions = "all"
+            mock_ctx.master.addons.get.return_value = mock_view
+
+            with patch("httpx.AsyncClient") as mock_client:
+                mock_instance = AsyncMock()
+                mock_instance.request = AsyncMock(return_value=mock_response)
+                mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+                mock_instance.__aexit__ = AsyncMock(return_value=None)
+                mock_client.return_value = mock_instance
+
+                result = await handle_replay_tool(
+                    "send_request",
+                    {"url": "http://example.com/test"},
+                )
+
+            data = json.loads(result[0].text)
+            mock_ctx.master.addons.get.assert_called_once_with("view")
+            mock_view.add.assert_called_once()
+            flow = mock_view.add.call_args.args[0][0]
+            assert flow.id == data["flow_id"]
+
+    @pytest.mark.asyncio
+    async def test_send_request_does_not_add_flow_to_view_when_disabled(self):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.content = b""
+        mock_response.headers = {}
+
+        with patch("mitmproxy_mcp.tools.replay.ctx") as mock_ctx:
+            mock_ctx.options.mcp_view_sync_actions = "clear"
+
+            with patch("httpx.AsyncClient") as mock_client:
+                mock_instance = AsyncMock()
+                mock_instance.request = AsyncMock(return_value=mock_response)
+                mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+                mock_instance.__aexit__ = AsyncMock(return_value=None)
+                mock_client.return_value = mock_instance
+
+                await handle_replay_tool(
+                    "send_request",
+                    {"url": "http://example.com/test"},
+                )
+
+            assert mock_ctx.master.addons.get.call_count == 0
+
+    @pytest.mark.asyncio
+    async def test_replay_request_adds_flow_to_view(self):
+        flow = tflow.tflow(resp=True)
+        self.storage.add(flow)
+
+        with patch("mitmproxy_mcp.tools.replay.ctx") as mock_ctx:
+            mock_ctx.options.mcp_view_sync_actions = "all"
+            mock_ctx.master.commands.call = MagicMock(
+                side_effect=lambda _name, flows: setattr(
+                    flows[0],
+                    "response",
+                    http.Response.make(200, b"", []),
+                )
+            )
+            flow.is_replay = "request"
+
+            result = await handle_replay_tool("replay_request", {"flow_id": flow.id})
+            data = json.loads(result[0].text)
+
+            mock_ctx.master.commands.call.assert_called_once_with(
+                "replay.client", [flow]
+            )
+            assert data["new_flow_id"] == flow.id
+            assert data["replayed_in_place"] is True
+
+    @pytest.mark.asyncio
+    async def test_replay_request_without_replay_sync_creates_detached_flow(self):
+        flow = tflow.tflow(resp=True)
+        self.storage.add(flow)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.content = b""
+        mock_response.headers = {}
+
+        with patch("mitmproxy_mcp.tools.replay.ctx") as mock_ctx:
+            mock_ctx.options.mcp_view_sync_actions = "clear"
+
+            with patch("httpx.AsyncClient") as mock_client:
+                mock_instance = AsyncMock()
+                mock_instance.request = AsyncMock(return_value=mock_response)
+                mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+                mock_instance.__aexit__ = AsyncMock(return_value=None)
+                mock_client.return_value = mock_instance
+
+                result = await handle_replay_tool(
+                    "replay_request", {"flow_id": flow.id}
+                )
+
+            data = json.loads(result[0].text)
+            assert data["new_flow_id"] != flow.id
+            assert data["replayed_in_place"] is False
+
+    @pytest.mark.asyncio
+    async def test_modify_and_send_adds_flow_to_view(self):
+        flow = tflow.tflow(resp=True)
+        self.storage.add(flow)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.content = b""
+        mock_response.headers = {}
+
+        with patch("mitmproxy_mcp.tools.replay.ctx") as mock_ctx:
+            mock_view = MagicMock()
+            mock_ctx.options.mcp_view_sync_actions = "all"
+            mock_ctx.master.addons.get.return_value = mock_view
+
+            with patch("httpx.AsyncClient") as mock_client:
+                mock_instance = AsyncMock()
+                mock_instance.request = AsyncMock(return_value=mock_response)
+                mock_instance.__aenter__ = AsyncMock(return_value=mock_instance)
+                mock_instance.__aexit__ = AsyncMock(return_value=None)
+                mock_client.return_value = mock_instance
+
+                await handle_replay_tool(
+                    "modify_and_send", {"flow_id": flow.id, "method": "POST"}
+                )
+
+            mock_view.add.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_duplicate_flow_adds_flow_to_view(self):
+        flow = tflow.tflow(resp=True)
+        self.storage.add(flow)
+
+        with patch("mitmproxy_mcp.tools.replay.ctx") as mock_ctx:
+            mock_view = MagicMock()
+            mock_ctx.options.mcp_view_sync_actions = "all"
+            mock_ctx.master.addons.get.return_value = mock_view
+
+            await handle_replay_tool("duplicate_flow", {"flow_id": flow.id})
+
+            mock_view.add.assert_called_once()
+
+
 class TestModifyAndSendTool:
+    storage: FlowStorage = FlowStorage(max_flows=100)
+
     def setup_method(self):
         self.storage = FlowStorage(max_flows=100)
         set_storage(self.storage)
@@ -380,6 +549,8 @@ class TestModifyAndSendTool:
 
 
 class TestUnknownTool:
+    storage: FlowStorage = FlowStorage(max_flows=100)
+
     def setup_method(self):
         self.storage = FlowStorage(max_flows=100)
         set_storage(self.storage)
@@ -394,6 +565,8 @@ class TestUnknownTool:
 
 
 class TestNetworkErrors:
+    storage: FlowStorage = FlowStorage(max_flows=100)
+
     def setup_method(self):
         self.storage = FlowStorage(max_flows=100)
         set_storage(self.storage)
