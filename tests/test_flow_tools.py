@@ -1,4 +1,5 @@
 import json
+from unittest.mock import MagicMock, patch
 
 import pytest
 from mitmproxy.test import tflow
@@ -8,6 +9,8 @@ from mitmproxy_mcp.tools.flows import handle_flow_tool, FLOW_TOOLS
 
 
 class TestFlowStorage:
+    storage: FlowStorage = FlowStorage(max_flows=10)
+
     def setup_method(self):
         self.storage = FlowStorage(max_flows=10)
         set_storage(self.storage)
@@ -58,11 +61,14 @@ class TestFlowStorage:
         flow = tflow.tflow(resp=False)
         self.storage.add(flow)
 
-        flow.response = tflow.tresp()
+        flow_with_response = tflow.tflow(resp=True)
+        assert flow_with_response.response is not None
+        flow.response = flow_with_response.response
         self.storage.add(flow)
 
         assert self.storage.count() == 1
         retrieved = self.storage.get(flow.id)
+        assert retrieved is not None
         assert retrieved.response is not None
 
     def test_get_all_pagination(self):
@@ -79,8 +85,10 @@ class TestFlowStorage:
         assert len(all_flows) == 10
 
     def test_filter_by_method(self):
-        get_flow = tflow.tflow(req=tflow.treq(method="GET"), resp=True)
-        post_flow = tflow.tflow(req=tflow.treq(method="POST"), resp=True)
+        get_flow = tflow.tflow(resp=True)
+        get_flow.request.method = "GET"
+        post_flow = tflow.tflow(resp=True)
+        post_flow.request.method = "POST"
         self.storage.add(get_flow)
         self.storage.add(post_flow)
 
@@ -116,6 +124,8 @@ class TestFlowStorage:
 
 
 class TestFlowTools:
+    storage: FlowStorage = FlowStorage(max_flows=100)
+
     def setup_method(self):
         self.storage = FlowStorage(max_flows=100)
         set_storage(self.storage)
@@ -211,6 +221,30 @@ class TestFlowTools:
 
         assert data["cleared"] == 3
         assert self.storage.count() == 0
+
+    @pytest.mark.asyncio
+    async def test_clear_flows_clears_view_when_available(self):
+        with patch("mitmproxy_mcp.tools.flows.ctx") as mock_ctx:
+            mock_view = MagicMock()
+            mock_ctx.options.mcp_view_sync_actions = "all"
+            mock_ctx.master.addons.get.return_value = mock_view
+
+            await handle_flow_tool("clear_flows", {})
+
+            mock_ctx.master.addons.get.assert_called_once_with("view")
+            mock_view.clear.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_clear_flows_without_clear_sync_does_not_touch_view(self):
+        with patch("mitmproxy_mcp.tools.flows.ctx") as mock_ctx:
+            mock_ctx.options.mcp_view_sync_actions = "replay"
+
+            result = await handle_flow_tool("clear_flows", {})
+            data = json.loads(result[0].text)
+
+            assert data["cleared"] == 3
+            assert self.storage.count() == 0
+            assert mock_ctx.master.addons.get.call_count == 0
 
     @pytest.mark.asyncio
     async def test_get_flow_count(self):

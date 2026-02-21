@@ -5,10 +5,12 @@ import json
 from datetime import datetime
 
 import mcp.types as types
+from mitmproxy import ctx
 
 from ..storage import get_storage
 from ..models import FlowDetail, RequestModel, ResponseModel
 from ..privacy import get_redaction_engine
+from ..view_sync import should_sync_action
 
 
 # Tool definitions for MCP server registration
@@ -117,7 +119,7 @@ FLOW_TOOLS: List[types.Tool] = [
     ),
     types.Tool(
         name="clear_flows",
-        description="Clear all stored flows",
+        description="Clear all stored flows and clear mitmproxy's flow view when enabled by mcp_view_sync_actions (action: clear)",
         inputSchema={
             "type": "object",
             "properties": {},
@@ -286,6 +288,26 @@ def _flow_to_har_entry(flow: Any) -> Dict[str, Any]:
     }
 
 
+def _clear_mitmproxy_view() -> None:
+    if not should_sync_action("clear", getattr(ctx, "options", None)):
+        return
+
+    master = getattr(ctx, "master", None)
+    if master is None:
+        return
+
+    addons = getattr(master, "addons", None)
+    if addons is None:
+        return
+
+    try:
+        view_addon = addons.get("view")
+        if view_addon is not None and hasattr(view_addon, "clear"):
+            view_addon.clear()
+    except Exception:
+        pass
+
+
 async def handle_flow_tool(
     name: str, arguments: Dict[str, Any]
 ) -> List[types.TextContent]:
@@ -437,6 +459,7 @@ async def handle_flow_tool(
 
     elif name == "clear_flows":
         count = storage.clear()
+        _clear_mitmproxy_view()
         result = {"cleared": count, "message": f"Cleared {count} flows"}
         return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
 
