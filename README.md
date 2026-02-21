@@ -23,11 +23,10 @@ source .venv/bin/activate
 
 uv pip install -e ".[dev]"
 
-# one-time: make plain `mitmproxy` commands use this environment
+# one-time: make mitmproxy/mitmdump/mitmweb use this env
+# (prevents missing addon deps like `mcp` when system mitmproxy is used)
 mitmproxy-mcp install-shims --force
 ```
-
-Why this is needed: binary mitmproxy installs (Homebrew/Windows installer/standalone) run in a self-contained Python environment. This addon needs extra Python dependencies (for example `mcp`), so shims ensure `mitmproxy`, `mitmdump`, and `mitmweb` resolve to the environment where those dependencies are installed.
 
 Requires Python 3.10+ and mitmproxy >= 10.0.0.
 
@@ -54,7 +53,7 @@ mitmdump       # headless
 ```
 
 The MCP server starts automatically on `http://localhost:9011/sse`.
-If the command still resolves to a system install, ensure your shim directory (default `~/.local/bin`) is earlier in `PATH`.
+If the command still resolves to a system install, ensure your shim directory (default `~/.local/bin`) is earlier in `PATH`, then restart the terminal.
 
 ### 3. Connect your AI client
 
