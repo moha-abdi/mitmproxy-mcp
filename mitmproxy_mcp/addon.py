@@ -33,6 +33,12 @@ from .privacy import init_redaction_engine, reset_redaction_engine
 from .view_sync import parse_view_sync_actions
 
 
+def _set_flow_source(flow: http.HTTPFlow, source: str) -> None:
+    metadata = getattr(flow, "metadata", None)
+    if isinstance(metadata, dict):
+        metadata["mcp_source"] = source
+
+
 class MCPAddon:
     def __init__(self) -> None:
         self._server: Server = Server("mitmproxy-mcp")
@@ -147,12 +153,14 @@ class MCPAddon:
             raise ValueError(f"Unknown transport type: {transport}")
 
     def request(self, flow: http.HTTPFlow) -> None:
+        _set_flow_source(flow, "mitmproxy")
         self._storage.add(flow)
         parsed_filter = get_parsed_filter()
         if parsed_filter and flowfilter.match(parsed_filter, flow):
             flow.intercept()
 
     def response(self, flow: http.HTTPFlow) -> None:
+        _set_flow_source(flow, "mitmproxy")
         self._storage.add(flow)
 
     def done(self) -> None:

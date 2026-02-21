@@ -212,7 +212,14 @@ def _add_flow_to_view(flow: http.HTTPFlow) -> None:
         pass
 
 
+def _set_flow_source(flow: http.HTTPFlow, source: str) -> None:
+    metadata = getattr(flow, "metadata", None)
+    if isinstance(metadata, dict):
+        metadata["mcp_source"] = source
+
+
 def _record_flow(storage, flow: http.HTTPFlow) -> None:
+    _set_flow_source(flow, "mcp_tool")
     storage.add(flow)
     _add_flow_to_view(flow)
 

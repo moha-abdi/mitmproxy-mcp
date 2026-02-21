@@ -180,6 +180,22 @@ class FlowStorage:
             self._flow_order.clear()
             return count
 
+    def remove(self, flow_id: str) -> bool:
+        with self._lock:
+            if flow_id not in self._flows:
+                return False
+
+            del self._flows[flow_id]
+            try:
+                self._flow_order.remove(flow_id)
+            except ValueError:
+                pass
+            return True
+
+    def ids(self) -> List[str]:
+        with self._lock:
+            return list(self._flow_order)
+
     def count(self) -> int:
         """Get total number of stored flows.
 
