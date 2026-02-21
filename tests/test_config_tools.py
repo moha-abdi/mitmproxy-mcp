@@ -44,6 +44,8 @@ class TestConfigToolDefinitions:
 
 
 class TestGetOptions:
+    storage: FlowStorage = FlowStorage(max_flows=100)
+
     def setup_method(self):
         self.storage = FlowStorage(max_flows=100)
         set_storage(self.storage)
@@ -60,6 +62,7 @@ class TestGetOptions:
             mock_ctx.options.anticache = False
             mock_ctx.options.anticomp = False
             mock_ctx.options.showhost = False
+            mock_ctx.options.mcp_view_sync_actions = "all"
 
             result = await handle_config_tool("get_options", {})
             data = json.loads(result[0].text)
@@ -68,6 +71,7 @@ class TestGetOptions:
             assert data["listen_host"] == "127.0.0.1"
             assert data["listen_port"] == 8080
             assert data["mode"] == "regular"
+            assert data["mcp_view_sync_actions"] == "all"
 
     @pytest.mark.asyncio
     async def test_get_specific_keys(self):
@@ -113,6 +117,7 @@ class TestGetOptions:
             mock_ctx.options.anticache = False
             mock_ctx.options.anticomp = False
             mock_ctx.options.showhost = False
+            mock_ctx.options.mcp_view_sync_actions = "none"
 
             result = await handle_config_tool("get_options", {"keys": []})
             data = json.loads(result[0].text)
@@ -122,6 +127,8 @@ class TestGetOptions:
 
 
 class TestSetOption:
+    storage: FlowStorage = FlowStorage(max_flows=100)
+
     def setup_method(self):
         self.storage = FlowStorage(max_flows=100)
         set_storage(self.storage)
@@ -241,6 +248,8 @@ class TestSetOption:
 
 
 class TestGetStatus:
+    storage: FlowStorage = FlowStorage(max_flows=100)
+
     def setup_method(self):
         self.storage = FlowStorage(max_flows=100)
         set_storage(self.storage)

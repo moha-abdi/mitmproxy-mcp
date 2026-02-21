@@ -1,9 +1,9 @@
 """mitmproxy addon with MCP server for querying captured traffic."""
 
 import asyncio
-from typing import Optional, cast
+from typing import Any, Optional, cast
 
-from mitmproxy import ctx, http
+from mitmproxy import ctx, exceptions, http
 from mitmproxy.addonmanager import Loader
 
 from mcp.server import Server
@@ -30,12 +30,13 @@ from .transport import (
     shutdown_sse_server,
 )
 from .privacy import init_redaction_engine, reset_redaction_engine
+from .view_sync import parse_view_sync_actions
 
 
 class MCPAddon:
     def __init__(self) -> None:
         self._server: Server = Server("mitmproxy-mcp")
-        self._server_task: Optional[asyncio.Task] = None
+        self._server_task: Optional[asyncio.Task[None]] = None
         self._storage = FlowStorage()
         set_storage(self._storage)
 
@@ -47,7 +48,7 @@ class MCPAddon:
             return FLOW_TOOLS + REPLAY_TOOLS + INTERCEPT_TOOLS + CONFIG_TOOLS
 
         @self._server.call_tool()
-        async def call_tool(name: str, arguments: dict):
+        async def call_tool(name: str, arguments: dict[str, Any]):
             flow_tool_names = {t.name for t in FLOW_TOOLS}
             replay_tool_names = {t.name for t in REPLAY_TOOLS}
             intercept_tool_names = {t.name for t in INTERCEPT_TOOLS}
@@ -91,8 +92,14 @@ class MCPAddon:
             "",
             'JSON array of custom regex patterns to redact (e.g., \'["secret", "token"]\')',
         )
+        loader.add_option(
+            "mcp_view_sync_actions",
+            str,
+            "all",
+            "Sync MCP actions to mitmproxy view: all, none, replay, clear, or replay,clear",
+        )
 
-    def configure(self, updated: set) -> None:
+    def configure(self, updated: set[str]) -> None:
         if "mcp_max_flows" in updated:
             max_flows = int(cast(int, ctx.options.mcp_max_flows))
             self._storage = FlowStorage(max_flows=max_flows)
@@ -109,6 +116,13 @@ class MCPAddon:
                 init_redaction_engine(custom_patterns)
             else:
                 reset_redaction_engine()
+
+        if "mcp_view_sync_actions" in updated:
+            raw_value = cast(str, ctx.options.mcp_view_sync_actions)
+            try:
+                parse_view_sync_actions(raw_value)
+            except ValueError as e:
+                raise exceptions.OptionsError(str(e)) from e
 
     def running(self) -> None:
         loop = asyncio.get_running_loop()

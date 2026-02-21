@@ -25,6 +25,7 @@ CURATED_OPTIONS = [
     "anticache",
     "anticomp",
     "showhost",
+    "mcp_view_sync_actions",
 ]
 
 
