@@ -92,7 +92,6 @@ mitmproxy-mcp/
     test_transport.py       transport layer tests
     test_integration.py     addon integration tests
 
-  poc/                      original proof of concept (archived)
 ```
 
 ---
