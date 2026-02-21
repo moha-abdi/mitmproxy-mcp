@@ -353,6 +353,8 @@ def _sync_storage_from_mitmproxy_view(storage: Any) -> None:
         view_flows.append(flow)
 
     view_ids = {flow.id for flow in view_flows}
+    options = getattr(ctx, "options", None)
+    keep_detached_mcp_tool_flows = not should_sync_action("replay", options)
 
     for flow in view_flows:
         _set_flow_source(flow, "mitmproxy")
@@ -365,7 +367,7 @@ def _sync_storage_from_mitmproxy_view(storage: Any) -> None:
         flow = storage.get(flow_id)
         if flow is None:
             continue
-        if _get_flow_source(flow) == "mcp_tool":
+        if _get_flow_source(flow) == "mcp_tool" and keep_detached_mcp_tool_flows:
             continue
 
         storage.remove(flow_id)

@@ -327,6 +327,7 @@ class TestFlowTools:
         with patch("mitmproxy_mcp.tools.flows.ctx") as mock_ctx:
             mock_view = MagicMock()
             mock_view._store = {}
+            mock_ctx.options.mcp_view_sync_actions = "none"
             mock_ctx.master.addons.get.return_value = mock_view
 
             result = await handle_flow_tool("get_flow_count", {})
@@ -334,6 +335,27 @@ class TestFlowTools:
 
         assert data["count"] == 1
         assert self.storage.count() == 1
+
+    @pytest.mark.asyncio
+    async def test_get_flow_count_removes_mcp_tool_flows_after_ui_clear_when_replay_sync_enabled(
+        self,
+    ):
+        self.storage.clear()
+        mcp_flow = tflow.tflow(resp=True)
+        mcp_flow.metadata["mcp_source"] = "mcp_tool"
+        self.storage.add(mcp_flow)
+
+        with patch("mitmproxy_mcp.tools.flows.ctx") as mock_ctx:
+            mock_view = MagicMock()
+            mock_view._store = {}
+            mock_ctx.options.mcp_view_sync_actions = "all"
+            mock_ctx.master.addons.get.return_value = mock_view
+
+            result = await handle_flow_tool("get_flow_count", {})
+            data = json.loads(result[0].text)
+
+        assert data["count"] == 0
+        assert self.storage.count() == 0
 
     @pytest.mark.asyncio
     async def test_export_flows_har(self):
