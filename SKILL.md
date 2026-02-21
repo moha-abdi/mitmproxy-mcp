@@ -19,6 +19,7 @@ mitmproxy      # or mitmweb, or mitmdump
 ```
 
 The addon and MCP server start automatically if configured in `~/.mitmproxy/config.yaml`.
+For dependency-safe startup, install shims once with `mitmproxy-mcp install-shims --force`.
 
 ## When to Use This Skill
 

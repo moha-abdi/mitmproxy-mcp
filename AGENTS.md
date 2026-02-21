@@ -49,6 +49,7 @@ uv pip install --upgrade <package>
 /Users/moha/.local/bin/python3.10 -m venv .venv
 source .venv/bin/activate
 uv pip install -e ".[dev]"
+mitmproxy-mcp install-shims --force
 ```
 
 ---
