@@ -137,6 +137,7 @@ The MCP server starts automatically at `http://localhost:9011/sse`.
 | `mcp_max_flows` | `1000` | Max flows in memory (oldest evicted first) |
 | `mcp_redact` | `false` | Enable privacy redaction of sensitive data |
 | `mcp_redact_patterns` | _(empty)_ | Additional redaction patterns as JSON array (requires `mcp_redact: true`) |
+| `mcp_view_sync_actions` | `all` | Which MCP actions sync to mitmproxy view: `all`, `none`, `replay`, `clear`, or `replay,clear` |
 
 ---
 

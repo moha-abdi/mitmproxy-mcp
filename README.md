@@ -205,7 +205,7 @@ npx -y supergateway --sse http://127.0.0.1:9011/sse
 | `search_flows` | Search flows by regex pattern |
 | `get_flow_request` | Get request details |
 | `get_flow_response` | Get response details |
-| `clear_flows` | Clear all captured flows |
+| `clear_flows` | Clear all captured flows (and UI view when sync includes `clear`) |
 | `get_flow_count` | Count captured flows |
 | `export_flows` | Export flows to HAR format |
 
@@ -217,6 +217,8 @@ npx -y supergateway --sse http://127.0.0.1:9011/sse
 | `send_request` | Send a new HTTP request |
 | `modify_and_send` | Modify a captured request and send it |
 | `duplicate_flow` | Clone a flow for comparison |
+
+Replay tool flows are reflected to mitmproxy's flow list when `mcp_view_sync_actions` includes `replay` (default `all`). `replay_request` replays the original flow in-place when replay sync is enabled; otherwise it creates a detached replay flow.
 
 ### Intercept tools (5)
 
@@ -247,6 +249,7 @@ Pass via `--set` flag or set in `~/.mitmproxy/config.yaml`:
 | `mcp_max_flows` | `1000` | Max flows to keep in memory (oldest evicted first) |
 | `mcp_redact` | `false` | Redact sensitive data (tokens, keys, passwords) before sending to AI |
 | `mcp_redact_patterns` | _(empty)_ | Additional redaction patterns as JSON array (requires `mcp_redact: true`) |
+| `mcp_view_sync_actions` | `all` | Which MCP actions sync to mitmproxy view: `all`, `none`, `replay`, `clear`, or `replay,clear` |
 
 Example:
 

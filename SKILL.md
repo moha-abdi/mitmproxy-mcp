@@ -38,15 +38,17 @@ The addon and MCP server start automatically if configured in `~/.mitmproxy/conf
 - `get_flow_request` -- get only the request portion of a flow
 - `get_flow_response` -- get only the response portion of a flow
 - `get_flow_count` -- count of currently stored flows
-- `clear_flows` -- clear all stored flows
+- `clear_flows` -- clear all stored flows and clear mitmproxy's flow view when sync includes `clear`
 - `export_flows` -- export flows to HAR 1.2 format. Optionally pass specific flow IDs.
 
 ### Replay Tools -- sending and modifying requests
 
-- `replay_request` -- replay a captured request exactly as-is. Returns a new flow with the response.
+- `replay_request` -- replay a captured request exactly as-is. Replays in-place when view sync includes `replay`; otherwise creates a detached replay flow.
 - `send_request` -- send a new HTTP request. Parameters: `url` (required), `method` (default GET), `headers`, `body`.
 - `modify_and_send` -- take an existing flow, change its method/url/headers/body, and send it. Useful for testing variations.
 - `duplicate_flow` -- clone a flow without sending it. Useful for before/after comparisons.
+
+Replay tool flows are reflected to mitmproxy's flow list when `mcp_view_sync_actions` includes `replay` (default: `all`).
 
 ### Intercept Tools -- pausing and controlling live traffic
 
@@ -89,6 +91,7 @@ The addon and MCP server start automatically if configured in `~/.mitmproxy/conf
 ## Important Notes
 
 - Sensitive data redaction is off by default. Enable with `mcp_redact: true` in mitmproxy config to redact tokens, passwords, API keys, and JWTs
+- Use `mcp_view_sync_actions` to control what syncs to mitmproxy's view (`all`, `none`, `replay`, `clear`, or `replay,clear`)
 - Request/response bodies are truncated to 10KB to prevent context overflow
 - All data is in-memory only -- cleared when mitmproxy stops
 - The proxy stores up to 1000 flows by default (oldest evicted first)
