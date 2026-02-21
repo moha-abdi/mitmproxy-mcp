@@ -281,6 +281,91 @@ class TestFlowTools:
         assert "error" in data
 
     @pytest.mark.asyncio
+    async def test_focus_flow(self):
+        flows = self.storage.get_all(limit=3)
+        target = flows[1]
+        view_store = {f.id: f for f in flows}
+
+        with patch("mitmproxy_mcp.tools.flows.ctx") as mock_ctx:
+            mock_view = MagicMock()
+            mock_view._store = view_store
+            mock_view.__contains__.side_effect = lambda flow: flow in flows
+            mock_view.focus = MagicMock()
+            mock_view.focus.index = 1
+            mock_ctx.master.addons.get.return_value = mock_view
+
+            result = await handle_flow_tool("focus_flow", {"flow_id": target.id})
+            data = json.loads(result[0].text)
+
+        assert data["status"] == "success"
+        assert data["flow_id"] == target.id
+        assert data["focus_index"] == 1
+        assert mock_view.focus.flow == target
+
+    @pytest.mark.asyncio
+    async def test_focus_flow_hidden_by_filter(self):
+        flows = self.storage.get_all(limit=3)
+        target = flows[1]
+        view_store = {f.id: f for f in flows}
+
+        with patch("mitmproxy_mcp.tools.flows.ctx") as mock_ctx:
+            mock_view = MagicMock()
+            mock_view._store = view_store
+            mock_view.__contains__.return_value = False
+            mock_ctx.master.addons.get.return_value = mock_view
+
+            result = await handle_flow_tool("focus_flow", {"flow_id": target.id})
+            data = json.loads(result[0].text)
+
+        assert "error" in data
+        assert "hidden" in data["error"]
+
+    @pytest.mark.asyncio
+    async def test_focus_flow_index(self):
+        flows = self.storage.get_all(limit=3)
+        view_store = {f.id: f for f in flows}
+
+        with patch("mitmproxy_mcp.tools.flows.ctx") as mock_ctx:
+            mock_view = MagicMock()
+            mock_view._store = view_store
+            mock_view.__len__.return_value = len(flows)
+            mock_view.__getitem__.side_effect = lambda idx: flows[idx]
+            mock_view.focus = MagicMock()
+            mock_ctx.master.addons.get.return_value = mock_view
+
+            result = await handle_flow_tool("focus_flow_index", {"index": 1})
+            data = json.loads(result[0].text)
+
+        assert data["status"] == "success"
+        assert data["flow_id"] == flows[1].id
+        assert data["focus_index"] == 1
+        assert mock_view.focus.flow == flows[1]
+
+    @pytest.mark.asyncio
+    async def test_focus_flow_index_out_of_bounds(self):
+        flows = self.storage.get_all(limit=2)
+        view_store = {f.id: f for f in flows}
+
+        with patch("mitmproxy_mcp.tools.flows.ctx") as mock_ctx:
+            mock_view = MagicMock()
+            mock_view._store = view_store
+            mock_view.__len__.return_value = len(flows)
+            mock_ctx.master.addons.get.return_value = mock_view
+
+            result = await handle_flow_tool("focus_flow_index", {"index": 10})
+            data = json.loads(result[0].text)
+
+        assert "error" in data
+        assert "out of bounds" in data["error"]
+
+    @pytest.mark.asyncio
+    async def test_focus_flow_index_requires_integer(self):
+        result = await handle_flow_tool("focus_flow_index", {"index": "1"})
+        data = json.loads(result[0].text)
+        assert "error" in data
+        assert "integer" in data["error"]
+
+    @pytest.mark.asyncio
     async def test_clear_flows(self):
         assert self.storage.count() == 3
 
@@ -462,6 +547,8 @@ class TestToolDefinitions:
             "get_flow_response",
             "mark_flow",
             "unmark_flow",
+            "focus_flow",
+            "focus_flow_index",
             "clear_flows",
             "get_flow_count",
             "export_flows",

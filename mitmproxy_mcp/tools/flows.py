@@ -148,6 +148,36 @@ FLOW_TOOLS: List[types.Tool] = [
         },
     ),
     types.Tool(
+        name="focus_flow",
+        description="Move mitmproxy view focus to a specific visible flow by ID",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "flow_id": {
+                    "type": "string",
+                    "description": "Unique flow identifier",
+                },
+            },
+            "required": ["flow_id"],
+            "additionalProperties": False,
+        },
+    ),
+    types.Tool(
+        name="focus_flow_index",
+        description="Move mitmproxy view focus by visible list index (supports negative indices, e.g. -1 for last)",
+        inputSchema={
+            "type": "object",
+            "properties": {
+                "index": {
+                    "type": "integer",
+                    "description": "Zero-based index in current visible view. Negative values count from end.",
+                },
+            },
+            "required": ["index"],
+            "additionalProperties": False,
+        },
+    ),
+    types.Tool(
         name="clear_flows",
         description="Clear all stored flows and clear mitmproxy's flow view when enabled by mcp_view_sync_actions (action: clear)",
         inputSchema={
@@ -322,20 +352,30 @@ def _clear_mitmproxy_view() -> None:
     if not should_sync_action("clear", getattr(ctx, "options", None)):
         return
 
-    master = getattr(ctx, "master", None)
-    if master is None:
-        return
-
-    addons = getattr(master, "addons", None)
-    if addons is None:
+    view_addon = _get_view_addon()
+    if view_addon is None:
         return
 
     try:
-        view_addon = addons.get("view")
-        if view_addon is not None and hasattr(view_addon, "clear"):
+        if hasattr(view_addon, "clear"):
             view_addon.clear()
     except Exception:
         pass
+
+
+def _get_view_addon() -> Any:
+    master = getattr(ctx, "master", None)
+    if master is None:
+        return None
+
+    addons = getattr(master, "addons", None)
+    if addons is None:
+        return None
+
+    try:
+        return addons.get("view")
+    except Exception:
+        return None
 
 
 def _notify_flow_updated(flow: Any) -> None:
@@ -357,6 +397,70 @@ def _notify_flow_updated(flow: Any) -> None:
         pass
 
 
+def _focus_flow_in_view(flow: Any) -> Dict[str, Any]:
+    view_addon = _get_view_addon()
+    if view_addon is None:
+        return {"error": "mitmproxy view addon is unavailable"}
+
+    try:
+        in_view = flow in view_addon
+    except Exception:
+        return {"error": "Unable to inspect mitmproxy view state"}
+
+    if not in_view:
+        view_store = getattr(view_addon, "_store", None)
+        if isinstance(view_store, dict) and flow.id in view_store:
+            return {"error": "Flow exists but is hidden by current view filter"}
+        return {"error": "Flow is not present in current mitmproxy view"}
+
+    try:
+        view_addon.focus.flow = flow
+        focus_index = view_addon.focus.index
+    except Exception:
+        return {"error": "Failed to focus flow in mitmproxy view"}
+
+    return {
+        "status": "success",
+        "flow_id": flow.id,
+        "focus_index": focus_index,
+        "message": "Focused flow in mitmproxy view",
+    }
+
+
+def _focus_view_index(index: int) -> Dict[str, Any]:
+    view_addon = _get_view_addon()
+    if view_addon is None:
+        return {"error": "mitmproxy view addon is unavailable"}
+
+    try:
+        view_length = len(view_addon)
+    except Exception:
+        return {"error": "Unable to read mitmproxy view length"}
+
+    if view_length <= 0:
+        return {"error": "No visible flows in current mitmproxy view"}
+
+    focus_index = index if index >= 0 else view_length + index
+    if focus_index < 0 or focus_index >= view_length:
+        return {
+            "error": f"index out of bounds: {index}",
+            "view_length": view_length,
+        }
+
+    try:
+        flow = view_addon[focus_index]
+        view_addon.focus.flow = flow
+    except Exception:
+        return {"error": "Failed to focus flow by index in mitmproxy view"}
+
+    return {
+        "status": "success",
+        "flow_id": flow.id,
+        "focus_index": focus_index,
+        "message": "Focused flow in mitmproxy view",
+    }
+
+
 def _set_flow_source(flow: Any, source: str) -> None:
     metadata = getattr(flow, "metadata", None)
     if isinstance(metadata, dict):
@@ -373,19 +477,7 @@ def _get_flow_source(flow: Any) -> str | None:
 
 
 def _sync_storage_from_mitmproxy_view(storage: Any) -> None:
-    master = getattr(ctx, "master", None)
-    if master is None:
-        return
-
-    addons = getattr(master, "addons", None)
-    if addons is None:
-        return
-
-    try:
-        view_addon = addons.get("view")
-    except Exception:
-        return
-
+    view_addon = _get_view_addon()
     if view_addon is None:
         return
 
@@ -622,6 +714,36 @@ async def handle_flow_tool(
             "marker": "",
             "message": "Flow unmarked",
         }
+        return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
+
+    elif name == "focus_flow":
+        flow_id = arguments.get("flow_id")
+        if not flow_id:
+            return [
+                types.TextContent(type="text", text='{"error": "flow_id is required"}')
+            ]
+
+        flow = storage.get(flow_id)
+        if not flow:
+            return [
+                types.TextContent(
+                    type="text", text=f'{{"error": "Flow not found: {flow_id}"}}'
+                )
+            ]
+
+        result = _focus_flow_in_view(flow)
+        return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
+
+    elif name == "focus_flow_index":
+        index = arguments.get("index")
+        if not isinstance(index, int):
+            return [
+                types.TextContent(
+                    type="text", text='{"error": "index must be an integer"}'
+                )
+            ]
+
+        result = _focus_view_index(index)
         return [types.TextContent(type="text", text=json.dumps(result, indent=2))]
 
     elif name == "clear_flows":
